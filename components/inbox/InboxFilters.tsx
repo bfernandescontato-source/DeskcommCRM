@@ -18,12 +18,13 @@ import { useConversationTagVocabulary } from "@/hooks/inbox/useConversationTags"
 import { useConversationCounts } from "@/hooks/inbox/useConversationCounts";
 import type { Role, VisibilityMode } from "@/lib/auth/types";
 
-export type InboxTab = "unassigned" | "mine" | "all" | "closed" | "archived" | "ai";
+export type InboxTab = "unassigned" | "mine" | "all" | "groups" | "closed" | "archived" | "ai";
 
 const INBOX_TABS: { value: InboxTab; label: string }[] = [
   { value: "unassigned", label: "Fila" },
   { value: "mine", label: "Minhas" },
   { value: "all", label: "Todas" },
+  { value: "groups", label: "Grupos" },
   { value: "closed", label: "Fechadas" },
   // "Arquivadas" fica ao lado de "Fechadas" porque as duas são passado — e
   // separada dela porque são passados diferentes (#923): fechada é atendimento
@@ -117,6 +118,7 @@ export function InboxFilters({ value, onChange }: Props) {
     ai: counts?.automatico,
     mine: counts?.mine,
     all: counts?.all,
+    groups: counts?.groups,
     closed: counts?.closed,
     archived: counts?.archived,
   };

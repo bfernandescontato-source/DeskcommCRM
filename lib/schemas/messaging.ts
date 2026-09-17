@@ -315,6 +315,7 @@ export const listConversationsQuerySchema = z.object({
   assigned_to: z.union([z.string().uuid(), z.literal("me"), z.literal("unassigned")]).optional(),
   channel_session_id: z.string().uuid().optional(),
   tag: conversationTagSchema.optional(),
+  is_group: z.coerce.boolean().optional(),
   /**
    * Só as que têm mensagem não lida para o dono.
    *

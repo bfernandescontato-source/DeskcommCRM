@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useChannelSessions } from "@/hooks/channels/useChannelSessions";
 
 import { useAutomaticoAtivo } from "@/hooks/ai/useAutomaticoAtivo";
+import { useGroupConversationPins } from "@/hooks/inbox/useGroupConversationPin";
 
 import { ConversationListItem } from "./ConversationListItem";
 import { EmptyInbox } from "@/components/empty";
@@ -62,14 +63,17 @@ export function ConversationList({
   // Uma leitura por lista, compartilhada por todas as linhas (react-query dedupa
   // com o cabeçalho, que faz a mesma pergunta).
   const automaticoDaOrg = useAutomaticoAtivo();
+  const groupPins = useGroupConversationPins();
 
   // Sem filtro de cliente: TODO filtro é parâmetro do schema e roda no banco.
   // `clientFilter` era o mecanismo que permitia um filtro existir fora do contrato
   // — e foi por ele que "Não lidos" virou ilha, fora da cerca que vigia os demais.
-  const items = useMemo(
-    () => (q.data?.pages.flatMap((p) => p.data) ?? []) as ConversationWithContact[],
-    [q.data],
-  );
+  const items = useMemo(() => {
+    const rows = (q.data?.pages.flatMap((p) => p.data) ?? []) as ConversationWithContact[];
+    if (!filters.is_group || !groupPins.data?.length) return rows;
+    const order = new Map(groupPins.data.map((id, index) => [id, index]));
+    return [...rows].sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+  }, [q.data, filters.is_group, groupPins.data]);
 
   // Notify parent of currently-visible IDs (for j/k nav). Must use effect
   // (not render-time call) — invoking onVisibleChange during render triggers

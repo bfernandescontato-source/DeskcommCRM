@@ -112,7 +112,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   // convenção da regra: assume que há automático.
   const automaticoDaOrg = await orgTemAutomatico(supabase, org);
 
-  const [fila, automatico, mine, all, closed, archived] = await Promise.all([
+  const [fila, automatico, mine, all, groups, closed, archived] = await Promise.all([
     // A FILA DEIXOU DE SER "sem dono + status de espera".
     //
     // Aquele par contava como trabalho humano pendente tudo que o robô estava
@@ -131,6 +131,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       .eq("assigned_to_user_id", user.id)
       .not("status", "in", `(${CONVERSATION_TERMINAL_STATUSES.join(",")})`),
     countExact(),
+    countExact().eq("is_group", true),
     // A aba "Fechadas" existia SEM número nenhum. Num inbox antigo, é o número
     // que diz o tamanho do arquivo — e a sua ausência fazia a aba parecer um
     // lugar vazio. Mesma fábrica: herda organização e filtros.
@@ -150,7 +151,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   ]);
 
   const firstErr =
-    fila.error ?? automatico.error ?? mine.error ?? all.error ?? closed.error ?? archived.error;
+    fila.error ?? automatico.error ?? mine.error ?? all.error ?? groups.error ?? closed.error ?? archived.error;
   if (firstErr) {
     return fail("internal_error", firstErr.message, 500, { requestId });
   }
@@ -166,6 +167,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       unassigned: fila.count ?? 0,
       mine: mine.count ?? 0,
       all: all.count ?? 0,
+      groups: groups.count ?? 0,
       closed: closed.count ?? 0,
       archived: archived.count ?? 0,
     },

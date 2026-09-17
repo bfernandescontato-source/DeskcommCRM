@@ -82,7 +82,7 @@ function idsQueCabemNaURL(ids: string[]): string[] {
   return cabem;
 }
 
-const SELECT_COLS = `
+export const SELECT_COLS = `
   id, organization_id, contact_id, channel_session_id, channel, status,
   status_changed_at, service_revision, service_closed_at, service_started_at, current_demanda_id, assigned_to_user_id, assigned_to_user_name, assignee_kind, assigned_at, last_inbound_at,
   last_outbound_at, last_message_at, last_message_preview,
@@ -196,6 +196,7 @@ export async function listConversationsHandler(
   }
   if (q.channel_session_id) query = query.eq("channel_session_id", q.channel_session_id);
   if (q.tag) query = query.contains("tags", [q.tag]); // tags @> array[tag] (GIN)
+  if (q.is_group !== undefined) query = query.eq("is_group", q.is_group);
 
   // No BANCO, e não em memória: filtrar depois de paginar devolveria páginas curtas —
   // e, quando a página inteira estivesse lida, uma lista vazia que a tela apresentava
