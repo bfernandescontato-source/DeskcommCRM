@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { JanelaSelo } from "@/components/inbox/JanelaSelo";
-import { Phone, ArrowRight } from "@/lib/ui/icons";
+import { Phone, ArrowRight, PushPin } from "@/lib/ui/icons";
+import { useGroupConversationPins, useToggleGroupConversationPin } from "@/hooks/inbox/useGroupConversationPin";
 import { useAuth } from "@/hooks/auth/AuthProvider";
 import { useClaimConversation } from "@/hooks/inbox/useClaimConversation";
 import { useReleaseConversation } from "@/hooks/inbox/useReleaseConversation";
@@ -69,6 +70,9 @@ export function ConversationHeader({ conversation }: Props) {
   // atendendo em instalação que nunca configurou agente nenhum.
   const automaticoDaOrg = useAutomaticoAtivo();
   const [reassignOpen, setReassignOpen] = useState(false);
+  const groupPins = useGroupConversationPins();
+  const toggleGroupPin = useToggleGroupConversationPin();
+  const groupPinned = groupPins.data?.includes(conversation.id) ?? false;
 
   const c = conversation.contacts ?? null;
   const displayName = rotuloDoContato(c, t);
@@ -205,6 +209,14 @@ export function ConversationHeader({ conversation }: Props) {
           barra pode encolher e quebrar internamente, e os botões continuam
           todos visíveis e clicáveis — só que em duas linhas quando preciso. */}
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        {conversation.is_group && (
+          <Button size="sm" variant="ghost" disabled={toggleGroupPin.isPending}
+            title={t(groupPinned ? "Desafixar grupo" : "Fixar grupo no topo da aba Grupos")}
+            onClick={() => toggleGroupPin.mutate({ conversationId: conversation.id, pinned: groupPinned })}>
+            <PushPin size={15} weight={groupPinned ? "fill" : "regular"} aria-hidden />
+            {t(groupPinned ? "Desafixar" : "Fixar")}
+          </Button>
+        )}
         {isOpen && (
           <Button
             size="sm"

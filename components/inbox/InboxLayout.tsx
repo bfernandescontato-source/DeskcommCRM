@@ -103,13 +103,15 @@ export function tabToFilter(
       // "Devolver ao automático"), então a aba vivia mostrando 2 enquanto o robô
       // atendia 47. Agora ela pergunta a régua do MOTOR.
       return { comando: ["automatico"] };
+    case "groups":
+      return { is_group: true };
     case "all":
     default:
       return {};
   }
 }
 
-const FILTER_TABS: InboxTab[] = ["unassigned", "mine", "all", "closed", "archived", "ai"];
+const FILTER_TABS: InboxTab[] = ["unassigned", "mine", "all", "groups", "closed", "archived", "ai"];
 
 /**
  * Lê ?filter= (G4-02, deep-link). ?filter=all é HONRADO mesmo para agent — a
@@ -197,6 +199,7 @@ export function InboxLayout({ initialSelectedId = null }: InboxLayoutProps = {})
         : undefined,
       channel_session_id: filterValue.channel_session_id,
       tag: filterValue.tag,
+      is_group: filterValue.tab === "groups" || undefined,
       unread: filterValue.onlyUnread || undefined,
     }),
     [

@@ -301,6 +301,8 @@ export const AUDIT_ACTIONS = [
   "tenant.created_by_signup",
   "tenant.created_by_recovery",
   "conversation.snoozed",
+  "conversation.group_pinned",
+  "conversation.group_unpinned",
   "conversation.snooze_cancelled",
   "conversation.snooze_watcher_run",
   "conversation.note_added",

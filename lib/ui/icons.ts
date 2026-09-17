@@ -141,5 +141,6 @@ export {
   CalendarCheck,
   GoogleLogo,
   MapPin,
+  PushPin,
   ArrowsOutSimple,
 } from "@phosphor-icons/react/dist/ssr";

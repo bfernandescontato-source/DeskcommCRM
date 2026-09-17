@@ -6923,6 +6923,15 @@ export type Database = {
           },
         ]
       }
+      conversation_group_pins: {
+        Row: { id: string; organization_id: string; user_id: string; conversation_id: string; created_at: string }
+        Insert: { id?: string; organization_id: string; user_id: string; conversation_id: string; created_at?: string }
+        Update: { id?: string; organization_id?: string; user_id?: string; conversation_id?: string; created_at?: string }
+        Relationships: [
+          { foreignKeyName: "conversation_group_pins_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "conversation_group_pins_conversation_id_fkey"; columns: ["conversation_id"]; isOneToOne: false; referencedRelation: "conversations"; referencedColumns: ["id"] },
+        ]
+      }
       reentry_knob_pointers: {
         Row: {
           organization_id: string
@@ -9204,4 +9213,3 @@ export const Constants = {
     },
   },
 } as const
-
