@@ -64,8 +64,13 @@ begin
   return v_id;
 end; $$;
 
-revoke all on function public.fn_upsert_wa_group_contact(uuid, text, text) from public;
-revoke all on function public.fn_upsert_wa_group_conversation(uuid, uuid, uuid, text) from public;
+-- Definer que escreve em `contacts`/`conversations` por `p_org` recebido: só o
+-- servidor (service_role) pode chamar. `revoke from public` sozinho NÃO basta —
+-- num Supabase de verdade a função nasce com grant DIRETO a anon/authenticated
+-- (default ACL), e por REST qualquer um com a chave pública criaria contato em
+-- qualquer organização. Vigiado por tests/invariants/hardening-definer-varredura.test.ts.
+revoke execute on function public.fn_upsert_wa_group_contact(uuid, text, text) from public, anon, authenticated;
+revoke execute on function public.fn_upsert_wa_group_conversation(uuid, uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.fn_upsert_wa_group_contact(uuid, text, text) to service_role;
 grant execute on function public.fn_upsert_wa_group_conversation(uuid, uuid, uuid, text) to service_role;
 

@@ -5034,8 +5034,8 @@ end; $$;
 
 revoke all on function public.fn_upsert_wa_contact(uuid, text, text, text, text, text) from public;
 revoke all on function public.fn_upsert_wa_conversation(uuid, uuid, uuid) from public;
-revoke all on function public.fn_upsert_wa_group_contact(uuid, text, text) from public;
-revoke all on function public.fn_upsert_wa_group_conversation(uuid, uuid, uuid, text) from public;
+revoke execute on function public.fn_upsert_wa_group_contact(uuid, text, text) from public, anon, authenticated;
+revoke execute on function public.fn_upsert_wa_group_conversation(uuid, uuid, uuid, text) from public, anon, authenticated;
 revoke all on function public.fn_mark_conversation_message(uuid, text, text, timestamptz) from public;
 grant execute on function public.fn_upsert_wa_contact(uuid, text, text, text, text, text) to service_role;
 grant execute on function public.fn_upsert_wa_conversation(uuid, uuid, uuid) to service_role;
