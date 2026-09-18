@@ -31,6 +31,11 @@ vi.mock("@/hooks/ai/useAutomaticoAtivo", () => ({
 vi.mock("@/components/inbox/ConversationListItem", () => ({
   ConversationListItem: () => null,
 }));
+// A lista consulta os grupos fixados (react-query); este teste não monta um
+// QueryClientProvider e não trata de grupo — só precisa do hook calado.
+vi.mock("@/hooks/inbox/useGroupConversationPin", () => ({
+  useGroupConversationPins: () => ({ data: [] }),
+}));
 
 const { ConversationList } = await import("@/components/inbox/ConversationList");
 

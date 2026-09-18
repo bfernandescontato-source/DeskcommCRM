@@ -196,7 +196,11 @@ export async function listConversationsHandler(
   }
   if (q.channel_session_id) query = query.eq("channel_session_id", q.channel_session_id);
   if (q.tag) query = query.contains("tags", [q.tag]); // tags @> array[tag] (GIN)
-  if (q.is_group !== undefined) query = query.eq("is_group", q.is_group);
+  // GRUPO SÓ APARECE QUANDO PEDIDO (`is_group=true`, a aba Grupos). Sem o
+  // padrão `false`, Fila/Minhas/Todas/Fechadas/Automático — e o MCP, que passa
+  // por aqui — listavam o grupo do WhatsApp misturado às conversas com pessoas,
+  // que é o que o produto sempre mostrou antes de o grupo virar conversa (0276).
+  query = query.eq("is_group", q.is_group ?? false);
 
   // No BANCO, e não em memória: filtrar depois de paginar devolveria páginas curtas —
   // e, quando a página inteira estivesse lida, uma lista vazia que a tela apresentava

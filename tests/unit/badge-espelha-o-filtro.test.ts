@@ -78,10 +78,13 @@ describe("nenhuma contagem é montada por fora da fábrica", () => {
 
   it("a fábrica aplica os auxiliares E o não-lidas", () => {
     const fabrica = fonte.slice(
-      fonte.indexOf("const countExact = () =>"),
+      fonte.indexOf("const countExact = "),
       fonte.indexOf("await Promise.all(["),
     );
     expect(fabrica).toContain("organization_id");
+    // Grupo do WhatsApp só entra na contagem da aba Grupos: a fábrica SEMPRE
+    // decide `is_group`, para nenhuma contagem esquecer de excluí-lo.
+    expect(fabrica, "a fábrica deixou de decidir is_group").toContain('.eq("is_group", grupos)');
     expect(fabrica, "os filtros auxiliares não entram na fábrica").toContain("auxiliares");
     expect(fabrica, "o filtro de não lidas não entra na fábrica").toContain("soNaoLidas");
   });

@@ -264,6 +264,15 @@ CREATE OR REPLACE FUNCTION "public"."fn_emit_message_event"() RETURNS "trigger"
 declare
   v_event text;
 begin
+  -- 0278: mensagem de GRUPO do WhatsApp não emite evento (push, sentimento pago,
+  -- automações, follow-up e webhooks de saída não a recebem). Ver a migration.
+  if exists (
+    select 1 from public.conversations c
+     where c.id = new.conversation_id and c.is_group
+  ) then
+    return new;
+  end if;
+
   if new.direction = 'inbound' then
     v_event := 'message.received';
   else

@@ -91,11 +91,17 @@ export async function GET(req: NextRequest): Promise<Response> {
   // ⚠️ TODA contagem nasce daqui, e daqui já sai com `organization_id` E com os
   // filtros auxiliares. Herdar tira a opção de esquecer: não existe o caminho
   // "montei uma contagem e não pus o filtro".
-  const countExact = () => {
+  //
+  // Grupo do WhatsApp só entra na contagem da aba Grupos (`grupos: true`): as
+  // demais abas espelham listas que EXCLUEM grupo (`listConversationsHandler`),
+  // e badge que conta o que a aba não mostra manda o atendente procurar trabalho
+  // que não existe.
+  const countExact = ({ grupos = false }: { grupos?: boolean } = {}) => {
     let q = supabase
       .from("conversations")
       .select("id", { count: "exact", head: true })
-      .eq("organization_id", org);
+      .eq("organization_id", org)
+      .eq("is_group", grupos);
     for (const [coluna, valor] of auxiliares) q = q.eq(coluna, valor);
     if (soNaoLidas) q = q.gt("unread_count_for_assignee", 0);
     return q;
@@ -131,7 +137,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       .eq("assigned_to_user_id", user.id)
       .not("status", "in", `(${CONVERSATION_TERMINAL_STATUSES.join(",")})`),
     countExact(),
-    countExact().eq("is_group", true),
+    countExact({ grupos: true }),
     // A aba "Fechadas" existia SEM número nenhum. Num inbox antigo, é o número
     // que diz o tamanho do arquivo — e a sua ausência fazia a aba parecer um
     // lugar vazio. Mesma fábrica: herda organização e filtros.

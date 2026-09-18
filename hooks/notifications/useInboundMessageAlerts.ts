@@ -87,6 +87,13 @@ export function useInboundMessageAlerts(): void {
   const onChange = useCallback((payload: unknown) => {
     const row = rowFromRealtime(payload);
     if (!row) return;
+    // Mensagem de GRUPO não vira aviso: o grupo vive na aba Grupos e move dezenas
+    // de mensagens por hora — um toast e um som por mensagem. A ingestão marca
+    // `metadata.is_group` na própria linha, então não precisa de consulta extra.
+    const metadata = row.metadata;
+    if (metadata && typeof metadata === "object" && (metadata as { is_group?: unknown }).is_group === true) {
+      return;
+    }
     const conversationId = typeof row.conversation_id === "string" ? row.conversation_id : null;
     const direction = typeof row.direction === "string" ? row.direction : null;
     if (

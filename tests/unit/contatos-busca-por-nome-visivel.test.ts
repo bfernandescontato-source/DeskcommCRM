@@ -37,6 +37,8 @@ function supabaseEspiao() {
   const chain: any = {
     select: () => chain,
     eq: () => chain,
+    // A lista esconde o contato-fantasma de grupo (`neq("source", "whatsapp_group")`).
+    neq: () => chain,
     order: () => chain,
     limit: () => chain,
     contains: () => chain,
