@@ -1,10 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/audit", () => ({ audit: vi.fn() }));
 vi.mock("@/lib/channels/pos-entrada", () => ({ aplicarEfeitosPosEntrada: vi.fn() }));
+vi.mock("@/lib/waha/client", async (original) => ({
+  ...(await original<typeof import("@/lib/waha/client")>()),
+  getWahaClient: vi.fn(),
+}));
 
-import { dispatchWahaEvent, parseChatId, type WahaEnvelope, type WahaPayload } from "@/lib/waha/ingest";
+import { dispatchWahaEvent, limparCacheDoNomeDoGrupo, parseChatId, type WahaEnvelope, type WahaPayload } from "@/lib/waha/ingest";
 import { aplicarEfeitosPosEntrada } from "@/lib/channels/pos-entrada";
+import { getWahaClient } from "@/lib/waha/client";
 
 /**
  * GRUPO VIRA CONVERSA (migration 0276), MAS NUNCA "DEAL INFINITO".
@@ -45,9 +50,16 @@ function bancoDeMentira(): Duplo {
     };
     return q;
   };
+  const consultaDaSessao = () => {
+    const q = {
+      eq: () => q,
+      maybeSingle: async () => ({ data: { waha_session_name: "org_x_sessao" }, error: null }),
+    };
+    return q;
+  };
   const admin = {
-    from: () => ({
-      select: () => consulta(),
+    from: (tabela: string) => ({
+      select: () => (tabela === "channel_sessions" ? consultaDaSessao() : consulta()),
       insert: (linha: Record<string, unknown>) => ({
         select: () => ({
           maybeSingle: async () => {
@@ -70,15 +82,27 @@ function bancoDeMentira(): Duplo {
 const SESSION = { id: "sessao-1", organization_id: "org-1" };
 const GRUPO = "120363000000000000@g.us";
 
-function inboundDeGrupo(author: string, msgId: string): WahaEnvelope {
+function inboundDeGrupo(author: string, msgId: string, quemEscreveu?: string): WahaEnvelope {
   const payload: WahaPayload = {
     id: msgId,
     from: GRUPO,
     author,
     fromMe: false,
     body: "oi pessoal",
+    ...(quemEscreveu ? { _data: { notifyName: quemEscreveu } } : {}),
   };
   return { event: "message.any", session: "default", payload };
+}
+
+beforeEach(() => {
+  limparCacheDoNomeDoGrupo();
+  vi.mocked(getWahaClient).mockReset();
+});
+
+function wahaComNome(nome: string | null) {
+  const getGroupSubject = vi.fn(async () => nome);
+  vi.mocked(getWahaClient).mockReturnValue({ getGroupSubject } as never);
+  return getGroupSubject;
 }
 
 describe("parseChatId classifica grupo, mas ingest não descarta mais", () => {
@@ -142,5 +166,51 @@ describe("mensagem de grupo nunca acorda lead nem IA (regra W-09, regra dura nº
       aplicarEfeitosPosEntrada,
       "grupo chamou o mesmo caminho que cria lead/despacha IA para o 1-para-1",
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe("o NOME do grupo vem do WAHA, nunca de quem escreveu", () => {
+  it("usa o subject do grupo e ignora o nome da pessoa que falou", async () => {
+    const buscar = wahaComNome("Achados & Promoções #37");
+    const { admin, rpcs } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("5511111111111@s.whatsapp.net", "false_g_n1", "Diana Diniz"), "req-1");
+
+    const chamada = rpcs.find((c) => c.fn === "fn_upsert_wa_group_contact")!;
+    expect(chamada.args.p_subject).toBe("Achados & Promoções #37");
+    expect(JSON.stringify(rpcs), "o nome da pessoa vazou para o nome do grupo").not.toContain("Diana Diniz");
+    expect(buscar).toHaveBeenCalledWith("org_x_sessao", GRUPO);
+  });
+
+  it("busca o nome UMA vez por grupo, não a cada mensagem", async () => {
+    const buscar = wahaComNome("Grupo Certo");
+    const { admin, rpcs } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("5511111111111@s.whatsapp.net", "false_g_n2"), "req-1");
+    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("5522222222222@s.whatsapp.net", "false_g_n3"), "req-2");
+
+    expect(buscar).toHaveBeenCalledTimes(1);
+    const assuntos = rpcs.filter((c) => c.fn === "fn_upsert_wa_group_contact").map((c) => c.args.p_subject);
+    // A 2ª mensagem manda null: "não mexa no nome que já existe".
+    expect(assuntos).toEqual(["Grupo Certo", null]);
+  });
+
+  it("WAHA sem resposta: a mensagem entra e o nome existente é preservado (null)", async () => {
+    wahaComNome(null);
+    const { admin, rpcs, messages } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("5511111111111@s.whatsapp.net", "false_g_n4", "Diana Diniz"), "req-1");
+
+    expect(messages).toHaveLength(1);
+    expect(rpcs.find((c) => c.fn === "fn_upsert_wa_group_contact")!.args.p_subject).toBeNull();
+  });
+
+  it("sem cliente WAHA configurado, a mensagem também entra", async () => {
+    vi.mocked(getWahaClient).mockReturnValue(null);
+    const { admin, messages } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("5511111111111@s.whatsapp.net", "false_g_n5"), "req-1");
+
+    expect(messages).toHaveLength(1);
   });
 });

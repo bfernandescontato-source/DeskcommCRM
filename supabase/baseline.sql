@@ -4983,17 +4983,27 @@ create unique index if not exists uniq_contacts_org_group_chat
 create or replace function public.fn_upsert_wa_group_contact(
   p_org uuid, p_chat_id text, p_subject text
 ) returns uuid language plpgsql security definer set search_path = public as $$
-declare v_id uuid;
+declare
+  v_id uuid;
+  v_nome text := nullif(btrim(coalesce(p_subject, '')), '');
 begin
+  -- 0277: o nome é o `subject` do grupo (WAHA), nunca o de quem escreveu; nome
+  -- ausente NÃO sobrescreve o que já existe.
   insert into public.contacts (organization_id, phone_number, source, consent, tags, source_metadata, display_name)
   values (p_org, null, 'whatsapp_group', '{}'::jsonb, '{}'::text[],
-    jsonb_build_object('waha_group_chat_id', p_chat_id, 'group_subject', nullif(p_subject, '')),
-    coalesce(nullif(p_subject, ''), 'Grupo do WhatsApp'))
+    jsonb_build_object('waha_group_chat_id', p_chat_id)
+      || case when v_nome is not null
+           then jsonb_build_object('group_subject', v_nome, 'group_name_source', 'waha')
+           else '{}'::jsonb end,
+    coalesce(v_nome, 'Grupo do WhatsApp'))
   on conflict (organization_id, (source_metadata->>'waha_group_chat_id'))
     where source_metadata->>'waha_group_chat_id' is not null and is_merged_into is null
   do update set
-    display_name = coalesce(nullif(p_subject, ''), contacts.display_name),
-    source_metadata = contacts.source_metadata || jsonb_build_object('group_subject', nullif(p_subject, '')),
+    display_name = coalesce(v_nome, contacts.display_name),
+    source_metadata = contacts.source_metadata
+      || case when v_nome is not null
+           then jsonb_build_object('group_subject', v_nome, 'group_name_source', 'waha')
+           else '{}'::jsonb end,
     updated_at = now()
   returning id into v_id;
   return v_id;

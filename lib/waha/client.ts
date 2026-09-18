@@ -453,6 +453,33 @@ export class WahaClient {
   }
 
   /**
+   * O NOME de um grupo (o `subject` do WhatsApp), ou null.
+   *
+   * A mensagem de grupo NÃO carrega o nome do grupo — o `pushName`/`notifyName`
+   * do payload é de quem ESCREVEU. Usá-lo como nome do grupo batizava a conversa
+   * com o nome da última pessoa que falou. Só a rota de grupos responde isto
+   * (`GET /api/{session}/groups/{id}` → `{ subject, ... }`, medido no WAHA de
+   * produção).
+   *
+   * NÃO lança, pelo mesmo motivo de `getProfilePictureUrl`: quem chama está no
+   * meio da ingestão de uma mensagem, e nome de grupo é enfeite, não condição.
+   */
+  async getGroupSubject(session: string, groupChatId: string): Promise<string | null> {
+    try {
+      const res = await this.fetchComTeto(
+        `${this.baseUrl}/api/${encodeURIComponent(session)}/groups/${encodeURIComponent(groupChatId)}`,
+        { headers: { "X-Api-Key": this.apiKey } },
+      );
+      if (!res.ok) return null;
+      const body = (await res.json()) as { subject?: unknown };
+      const subject = typeof body.subject === "string" ? body.subject.trim() : "";
+      return subject ? subject.slice(0, 200) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * O telefone por trás de um id opaco (`<lid>@lid`), quando o canal souber.
    *
    * ─── Por que isto não é sempre possível ─────────────────────────────────

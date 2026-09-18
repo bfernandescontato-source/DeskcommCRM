@@ -27,6 +27,7 @@ import { ackToStatus } from "@/lib/types/messaging";
 import type { WahaEnvelope, WahaPayload } from "@/lib/waha/envelope";
 import { bareWaMessageId, chatIdFromWaMessageId } from "@/lib/waha/message-id";
 import { logger } from "@/lib/logger";
+import { getWahaClient } from "@/lib/waha/client";
 
 export type Admin = ReturnType<typeof createAdminClient>;
 
@@ -491,10 +492,72 @@ async function upsertConversation(
 }
 
 /**
+ * O NOME VERDADEIRO do grupo — nunca o de quem escreveu nele.
+ *
+ * O payload de uma mensagem de grupo não traz o nome do grupo: `notifyName` e
+ * `pushName` são da PESSOA que falou. Usá-los batizava a conversa com o nome da
+ * última pessoa a escrever (ou a deixava sem nome, quando ela não tinha um). O
+ * nome vem da rota de grupos do WAHA (`WahaClient.getGroupSubject`).
+ *
+ * Devolve o nome só quando ACABOU de buscá-lo; `null` quer dizer "não mexa no
+ * nome que já existe" (busca em cache, WAHA fora do ar, sessão sem nome). Uma
+ * busca por grupo a cada 6h — e uma nova tentativa a cada 30 min quando falha
+ * —, em vez de uma por mensagem: grupo é o tráfego mais volumoso do canal.
+ *
+ * NUNCA lança e nunca espera mais de `NOME_DO_GRUPO_ESPERA_MS`: o nome é
+ * enfeite, a mensagem do cliente não pode esperar por ele.
+ */
+const NOME_DO_GRUPO_REVALIDA_MS = 6 * 60 * 60 * 1000;
+const NOME_DO_GRUPO_NOVA_TENTATIVA_MS = 30 * 60 * 1000;
+const NOME_DO_GRUPO_ESPERA_MS = 3_000;
+const proximaBuscaDoNomeDoGrupo = new Map<string, number>();
+
+/** Só para teste: o cache vive no processo. */
+export function limparCacheDoNomeDoGrupo(): void {
+  proximaBuscaDoNomeDoGrupo.clear();
+}
+
+async function nomeDoGrupo(admin: Admin, session: Session, chatId: string): Promise<string | null> {
+  const chave = `${session.organization_id}:${chatId}`;
+  if ((proximaBuscaDoNomeDoGrupo.get(chave) ?? 0) > Date.now()) return null;
+  // Reserva a próxima tentativa ANTES de buscar: duas mensagens simultâneas do
+  // mesmo grupo não disparam duas buscas, e uma falha não vira uma por mensagem.
+  proximaBuscaDoNomeDoGrupo.set(chave, Date.now() + NOME_DO_GRUPO_NOVA_TENTATIVA_MS);
+  let relogio: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const waha = getWahaClient();
+    if (!waha) return null;
+    const { data } = await admin
+      .from("channel_sessions")
+      .select("waha_session_name")
+      .eq("id", session.id)
+      .maybeSingle();
+    const sessaoNoWaha = (data as { waha_session_name?: string | null } | null)?.waha_session_name;
+    if (!sessaoNoWaha) return null;
+    const nome = await Promise.race([
+      waha.getGroupSubject(sessaoNoWaha, chatId),
+      new Promise<null>((resolve) => {
+        relogio = setTimeout(() => resolve(null), NOME_DO_GRUPO_ESPERA_MS);
+      }),
+    ]);
+    if (nome) proximaBuscaDoNomeDoGrupo.set(chave, Date.now() + NOME_DO_GRUPO_REVALIDA_MS);
+    return nome;
+  } catch (err) {
+    logger.warn("waha.ingest: não consegui buscar o nome do grupo", {
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  } finally {
+    if (relogio) clearTimeout(relogio);
+  }
+}
+
+/**
  * Contato-fantasma do GRUPO — um só por chat id, nunca um por participante.
  * É o que resolve o "deal infinito" (migration 0027) pela raiz: quem manda a
  * mensagem (`p.author`) nunca entra na identidade da conversa, só o grupo em
- * si (`fn_upsert_wa_group_contact`, migration 0276).
+ * si (`fn_upsert_wa_group_contact`, migration 0276). `subject` é o nome do
+ * GRUPO (ver `nomeDoGrupo`); `null` preserva o nome que já existe.
  */
 async function getOrCreateGroupGhostContact(
   admin: Admin,
@@ -615,7 +678,12 @@ async function handleInboundGroup(
   texto: string | null,
   requestId: string,
 ): Promise<void> {
-  const contactId = await getOrCreateGroupGhostContact(admin, session.organization_id, chatId, notifyNameOf(p));
+  const contactId = await getOrCreateGroupGhostContact(
+    admin,
+    session.organization_id,
+    chatId,
+    await nomeDoGrupo(admin, session, chatId),
+  );
   if (!contactId) return;
 
   const conversationId = await upsertGroupConversation(admin, session.organization_id, contactId, session.id, chatId);
@@ -931,7 +999,7 @@ async function handleOutboundFromUserPhone(
   // amostras de outbound mostram o número do cliente. Nome e telefone vêm de
   // lugares diferentes do mesmo payload, e só um deles inverte no envio.
   const contactId = parsed.kind === "group"
-    ? await getOrCreateGroupGhostContact(admin, session.organization_id, chatId, null)
+    ? await getOrCreateGroupGhostContact(admin, session.organization_id, chatId, await nomeDoGrupo(admin, session, chatId))
     : await upsertContact(admin, session.organization_id, parsed, chatId, null, telefoneAlternativoDe(p));
   if (!contactId) return;
   const conversationId = parsed.kind === "group"
