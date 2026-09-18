@@ -56,6 +56,19 @@ export const CONVERSAS_IGNORADAS = {
 } as const;
 
 /**
+ * Valores que uma versão ANTERIOR deste código gravou nas sessões que já
+ * existem. `compatibleSession` os aceita e `convergirConfigDaSessao` os
+ * reescreve para o valor atual.
+ *
+ * Sem isto, trocar um valor de `CONVERSAS_IGNORADAS` faz TODA sessão
+ * pré-existente parecer "filtro explícito incompatível", e o Reconectar falha
+ * com `waha_create_422` — foi o que aconteceu quando `groups` passou de `true`
+ * para `false`. Um valor diferente destes (e do atual) continua recusado: aí é
+ * escolha explícita de outra pessoa, e a sessão não é tomada.
+ */
+const VALORES_ANTERIORES_ACEITOS: Readonly<Record<string, unknown>> = { groups: true };
+
+/**
  * Teto de relógio das chamadas ao WAHA.
  *
  * 15s não é número escolhido aqui: é o que `docs/specs/03-spec-whatsapp-waha.md`
@@ -236,8 +249,12 @@ export class WahaClient {
     const ignore = session.config.ignore;
     if (ignore === undefined) return true; // sessão legada; convergência preserva webhooks
     if (!ignore || typeof ignore !== "object" || Array.isArray(ignore)) return false;
-    return Object.entries(CONVERSAS_IGNORADAS).every(([key, value]) =>
-      !(key in ignore) || (ignore as Record<string, unknown>)[key] === value);
+    return Object.entries(CONVERSAS_IGNORADAS).every(([key, value]) => {
+      if (!(key in ignore)) return true;
+      const atual = (ignore as Record<string, unknown>)[key];
+      return atual === value
+        || (Object.hasOwn(VALORES_ANTERIORES_ACEITOS, key) && atual === VALORES_ANTERIORES_ACEITOS[key]);
+    });
   }
 
   /** Porta granular para a futura reserva: created nunca significa ownership. */
