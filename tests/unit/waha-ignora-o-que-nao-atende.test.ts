@@ -54,7 +54,7 @@ describe("a sessão nasce ignorando o que o CRM não atende", () => {
     await new WahaClient("http://w", "k").startSession("s1");
     const criacao = chamadas.find((c) => c.url.endsWith("/api/sessions") && c.metodo === "POST");
     expect((criacao?.corpo as { config?: { ignore?: unknown } })?.config?.ignore).toEqual({
-      status: true, broadcast: true, channels: true, groups: true,
+      status: true, broadcast: true, channels: true, groups: false,
     });
   });
 

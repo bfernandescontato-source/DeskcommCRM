@@ -4973,6 +4973,48 @@ begin
   return v_id;
 end; $$;
 
+-- D2. Contato-fantasma e conversa de grupo (0276) — irmãs das duas acima,
+-- nunca as substituem. Ver comentário da migration 0276 para o raciocínio
+-- (índice NOVO em vez de mexer na coluna gerada `wa_identity`).
+create unique index if not exists uniq_contacts_org_group_chat
+  on public.contacts (organization_id, (source_metadata->>'waha_group_chat_id'))
+  where source_metadata->>'waha_group_chat_id' is not null and is_merged_into is null;
+
+create or replace function public.fn_upsert_wa_group_contact(
+  p_org uuid, p_chat_id text, p_subject text
+) returns uuid language plpgsql security definer set search_path = public as $$
+declare v_id uuid;
+begin
+  insert into public.contacts (organization_id, phone_number, source, consent, tags, source_metadata, display_name)
+  values (p_org, null, 'whatsapp_group', '{}'::jsonb, '{}'::text[],
+    jsonb_build_object('waha_group_chat_id', p_chat_id, 'group_subject', nullif(p_subject, '')),
+    coalesce(nullif(p_subject, ''), 'Grupo do WhatsApp'))
+  on conflict (organization_id, (source_metadata->>'waha_group_chat_id'))
+    where source_metadata->>'waha_group_chat_id' is not null and is_merged_into is null
+  do update set
+    display_name = coalesce(nullif(p_subject, ''), contacts.display_name),
+    source_metadata = contacts.source_metadata || jsonb_build_object('group_subject', nullif(p_subject, '')),
+    updated_at = now()
+  returning id into v_id;
+  return v_id;
+end; $$;
+
+create or replace function public.fn_upsert_wa_group_conversation(
+  p_org uuid, p_contact uuid, p_session uuid, p_group_chat_id text
+) returns uuid language plpgsql security definer set search_path = public as $$
+declare v_id uuid;
+begin
+  insert into public.conversations (organization_id, contact_id, channel_session_id, channel, status, is_group, group_chat_id, unread_count_for_assignee, metadata)
+  values (p_org, p_contact, p_session, 'whatsapp', 'open', true, p_group_chat_id, 0, '{}'::jsonb)
+  on conflict (organization_id, contact_id, channel_session_id, group_chat_id)
+  do update set updated_at = now()
+  returning id into v_id;
+  return v_id;
+end; $$;
+
+comment on function public.fn_upsert_wa_group_contact is 'Contato-fantasma por grupo do WhatsApp: um só por chat id, nunca um por participante.';
+comment on function public.fn_upsert_wa_group_conversation is 'Conversa de grupo do WhatsApp; is_group=true sempre, jamais dispara lead ou IA.';
+
 create or replace function public.fn_mark_conversation_message(
   p_conv uuid, p_direction text, p_preview text, p_at timestamptz
 ) returns void language plpgsql security definer set search_path = public as $$
@@ -4992,9 +5034,13 @@ end; $$;
 
 revoke all on function public.fn_upsert_wa_contact(uuid, text, text, text, text, text) from public;
 revoke all on function public.fn_upsert_wa_conversation(uuid, uuid, uuid) from public;
+revoke all on function public.fn_upsert_wa_group_contact(uuid, text, text) from public;
+revoke all on function public.fn_upsert_wa_group_conversation(uuid, uuid, uuid, text) from public;
 revoke all on function public.fn_mark_conversation_message(uuid, text, text, timestamptz) from public;
 grant execute on function public.fn_upsert_wa_contact(uuid, text, text, text, text, text) to service_role;
 grant execute on function public.fn_upsert_wa_conversation(uuid, uuid, uuid) to service_role;
+grant execute on function public.fn_upsert_wa_group_contact(uuid, text, text) to service_role;
+grant execute on function public.fn_upsert_wa_group_conversation(uuid, uuid, uuid, text) to service_role;
 grant execute on function public.fn_mark_conversation_message(uuid, text, text, timestamptz) to service_role;
 
 -- ---- RLS por role em tabelas de config + viewer read-only (migration 0030) ----

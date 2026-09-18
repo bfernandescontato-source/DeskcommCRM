@@ -69,6 +69,8 @@ export const wahaPayloadSchema = z.looseObject({
   id: texto,
   from: texto,
   to: texto,
+  /** Só populado em grupo: quem efetivamente escreveu (`from` ali é o grupo). */
+  author: texto,
   fromMe: booleano,
   body: texto,
   type: texto,

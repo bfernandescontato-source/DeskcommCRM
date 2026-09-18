@@ -36,12 +36,13 @@ import { classificarFalhaDeAlcance, explicarFalhaDeAlcance } from "@/lib/net/alc
  * contêiner e entrado no banco DELE. Cortar na fonte é a única versão que
  * economiza as três coisas.
  *
- * ─── Grupos entram na lista, e isso não muda o produto ──────────────────────
+ * ─── Grupos saíram da lista ──────────────────────────────────────────────────
  *
- * O CLAUDE.md manda pular o vínculo de CRM quando o chat termina em `@g.us`.
- * Já hoje nenhuma mensagem de grupo vira conversa, contato ou lead: o
- * comportamento visível é idêntico com ou sem esta linha. O que muda é parar
- * de pagar por elas. Quem um dia quiser grupos inverte a chave.
+ * Grupo virou conversa de verdade (contato-fantasma por grupo, ver
+ * `getOrCreateGroupGhostContact` em `lib/waha/ingest.ts`) — a IA continua sem
+ * responder neles (regra dura nº 12, inalterada), mas o inbox precisa
+ * receber o evento pra existir a conversa. Quem quiser voltar a cortar na
+ * fonte inverte a chave de novo.
  */
 export const CONVERSAS_IGNORADAS = {
   /** Os "estados" que os contatos publicam. Sozinhos eram 69% do arquivo. */
@@ -50,8 +51,8 @@ export const CONVERSAS_IGNORADAS = {
   broadcast: true,
   /** Canais / newsletters. */
   channels: true,
-  /** Ver o parágrafo acima: o CRM já os descarta na entrada. */
-  groups: true,
+  /** Ver o cabeçalho: grupo agora vira conversa, precisa chegar ao CRM. */
+  groups: false,
 } as const;
 
 /**

@@ -350,6 +350,15 @@ function notifyNameOf(p: WahaPayload): string | null {
   return p._data?.notifyName ?? p._data?.pushName ?? null;
 }
 
+/**
+ * Em grupo, `p.from` é o ID do GRUPO — quem efetivamente escreveu vem em
+ * `p.author` (CLAUDE.md:145, `lib/waha/README.md:18`). Fora de grupo o WAHA
+ * não preenche este campo, por isso o fallback não é necessário aqui.
+ */
+function participanteDoGrupo(p: WahaPayload): string | null {
+  return p.author ?? null;
+}
+
 /** Corpo textual: WAHA nem sempre preenche `body` em cartões de contato NOWEB. */
 function bodyOf(p: WahaPayload): string | null {
   if (p.body) return p.body;
@@ -482,6 +491,50 @@ async function upsertConversation(
 }
 
 /**
+ * Contato-fantasma do GRUPO — um só por chat id, nunca um por participante.
+ * É o que resolve o "deal infinito" (migration 0027) pela raiz: quem manda a
+ * mensagem (`p.author`) nunca entra na identidade da conversa, só o grupo em
+ * si (`fn_upsert_wa_group_contact`, migration 0276).
+ */
+async function getOrCreateGroupGhostContact(
+  admin: Admin,
+  orgId: string,
+  chatId: string,
+  subject: string | null,
+): Promise<string | null> {
+  const { data, error } = await admin.rpc("fn_upsert_wa_group_contact" as never, {
+    p_org: orgId,
+    p_chat_id: chatId,
+    p_subject: subject,
+  } as never);
+  if (error) {
+    console.error("[waha.ingest] fn_upsert_wa_group_contact failed", error.message);
+    return null;
+  }
+  return (data as string) ?? null;
+}
+
+async function upsertGroupConversation(
+  admin: Admin,
+  orgId: string,
+  contactId: string,
+  sessionId: string,
+  groupChatId: string,
+): Promise<string | null> {
+  const { data, error } = await admin.rpc("fn_upsert_wa_group_conversation" as never, {
+    p_org: orgId,
+    p_contact: contactId,
+    p_session: sessionId,
+    p_group_chat_id: groupChatId,
+  } as never);
+  if (error) {
+    console.error("[waha.ingest] fn_upsert_wa_group_conversation failed", error.message);
+    return null;
+  }
+  return (data as string) ?? null;
+}
+
+/**
  * Carimba a conversa com a mensagem que acabou de entrar.
  *
  * ⚠️ FALHA BAIXO, MAS CONTA — e a diferença entre as duas coisas é o motivo
@@ -545,6 +598,73 @@ async function mensagemIngeridaPorExternalId(
   return data ?? null;
 }
 
+/**
+ * Mensagem de GRUPO. Vira conversa (contato-fantasma + `is_group=true`), mas
+ * **não roda `aplicarEfeitosPosEntrada`** — sem isso, opt-out, nascimento de
+ * lead e despacho da IA nunca são acionados por mensagem de grupo, que é
+ * exatamente a regra escrita em `docs/business-rules/00-business-rules-catalog.md`
+ * (W-09: "mensagem é gravada mas não vira atividade de lead"). A IA já tinha
+ * uma segunda trava independente pra isso (`drain.ts`, regra dura nº 12); esta
+ * função garante que o job nem chega a ser pedido.
+ */
+async function handleInboundGroup(
+  admin: Admin,
+  session: Session,
+  p: WahaPayload,
+  chatId: string,
+  texto: string | null,
+  requestId: string,
+): Promise<void> {
+  const contactId = await getOrCreateGroupGhostContact(admin, session.organization_id, chatId, notifyNameOf(p));
+  if (!contactId) return;
+
+  const conversationId = await upsertGroupConversation(admin, session.organization_id, contactId, session.id, chatId);
+  if (!conversationId) return;
+
+  const now = new Date().toISOString();
+  const { error: insertErr } = await admin
+    .from("messages")
+    .insert({
+      organization_id: session.organization_id,
+      conversation_id: conversationId,
+      channel_session_id: session.id,
+      contact_id: contactId,
+      external_id: p.id,
+      type: resolveMessageType(p),
+      direction: "inbound",
+      status: "delivered",
+      ack: p.ack ?? null,
+      body: texto,
+      media_url: mediaUrlOf(p),
+      media_mime: mediaMimeOf(p),
+      sent_via: "external_device",
+      sent_at: p.timestamp ? new Date(p.timestamp * 1000).toISOString() : now,
+      delivered_at: now,
+      metadata: { raw_type: p.type, ack_name: p.ackName, is_group: true, group_participant: participanteDoGrupo(p) },
+    })
+    .select("id")
+    .maybeSingle();
+
+  // Idempotência igual ao caminho 1-para-1: 23505 = já ingerida, dedup mudo.
+  // Grupo não alimenta match_reply/follow-up, então (ao contrário do inbound
+  // 1-para-1) não há pipeline para reacelerar aqui no dedup.
+  if (insertErr && insertErr.code !== "23505") {
+    console.error("[waha.ingest] group message insert failed", insertErr.message);
+    return;
+  }
+  if (insertErr) return;
+
+  await markConversation(admin, session.organization_id, conversationId, "inbound", previewFromMessage(p), p.timestamp ? new Date(p.timestamp * 1000).toISOString() : now);
+
+  await audit({
+    action: "message.received",
+    organizationId: session.organization_id,
+    resourceType: "message",
+    requestId,
+    metadata: { conversation_id: conversationId, type: p.type, external_id: p.id, is_group: true },
+  });
+}
+
 async function handleInbound(
   admin: Admin,
   session: Session,
@@ -553,11 +673,16 @@ async function handleInbound(
 ): Promise<void> {
   const chatId = p.from ?? "";
   const parsed = parseChatId(chatId);
-  if (parsed.kind === "group") return; // grupos não fazem binding CRM
   if (!p.id) return;
   // WAHA emite eventos vazios p/ status/read-receipt/presence — não viram mensagem.
   const texto = bodyOf(p);
   if (!texto && !mediaUrlOf(p) && !p.hasMedia) return;
+
+  if (parsed.kind === "group") {
+    await handleInboundGroup(admin, session, p, chatId, texto, requestId);
+    return;
+  }
+
   // Daqui para baixo era para ser uma mensagem de verdade: se o chat não é
   // endereçável, PERDEMOS uma — e isso precisa ser contável. O aviso fica depois
   // das guardas acima de propósito; antes delas, todo evento de presença viraria
@@ -754,7 +879,6 @@ async function handleOutboundFromUserPhone(
   // celular e o CRM não mostra", sem nenhum erro em log: o webhook devolvia 200.
   const chatId = p.to ?? chatIdFromWaMessageId(p.id ?? "") ?? p.from ?? "";
   const parsed = parseChatId(chatId);
-  if (parsed.kind === "group") return;
   if (!p.id) return;
   if (!p.body && !mediaUrlOf(p) && !p.hasMedia) return;
   // Idem inbound. Aqui o caso que mais dói é o chatId vazio: é literalmente o
@@ -766,7 +890,7 @@ async function handleOutboundFromUserPhone(
   // MORTA (varri 12 valores de `to` e nenhum a disparava, porque o único falsy
   // já era classificado como grupo uma linha acima) e voltaria a viver como
   // duplicata desta guarda, descartando calado justamente o caso que se quer ver.
-  if (!ehEnderecavel(parsed)) {
+  if (parsed.kind !== "group" && !ehEnderecavel(parsed)) {
     await avisarChatNaoReconhecido(admin, session.organization_id, session.id, chatId, "outbound");
     return;
   }
@@ -806,16 +930,13 @@ async function handleOutboundFromUserPhone(
   // Medido na produção — inbound 56/56 e outbound 20/20 trazem o campo, e as
   // amostras de outbound mostram o número do cliente. Nome e telefone vêm de
   // lugares diferentes do mesmo payload, e só um deles inverte no envio.
-  const contactId = await upsertContact(
-    admin,
-    session.organization_id,
-    parsed,
-    chatId,
-    null,
-    telefoneAlternativoDe(p),
-  );
+  const contactId = parsed.kind === "group"
+    ? await getOrCreateGroupGhostContact(admin, session.organization_id, chatId, null)
+    : await upsertContact(admin, session.organization_id, parsed, chatId, null, telefoneAlternativoDe(p));
   if (!contactId) return;
-  const conversationId = await upsertConversation(admin, session.organization_id, contactId, session.id);
+  const conversationId = parsed.kind === "group"
+    ? await upsertGroupConversation(admin, session.organization_id, contactId, session.id, chatId)
+    : await upsertConversation(admin, session.organization_id, contactId, session.id);
   if (!conversationId) return;
 
   const now = new Date().toISOString();

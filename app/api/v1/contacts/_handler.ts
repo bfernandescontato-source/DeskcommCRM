@@ -118,6 +118,9 @@ export async function listContactsHandler(
     // coluna só era escrita por uma data migration de mão única, e por isso
     // ninguém tinha esbarrado nisto.
     .is("is_merged_into", null)
+    // O contato-fantasma de um grupo do WhatsApp (0276) existe só para dar dono
+    // à conversa do grupo — não é uma pessoa da base.
+    .neq("source", "whatsapp_group")
     .order(sortCol, { ascending: asc, nullsFirst: false })
     .order("id", { ascending: asc })
     .limit(q.limit + 1);

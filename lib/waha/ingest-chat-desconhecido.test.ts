@@ -13,16 +13,20 @@ import { dispatchWahaEvent, parseChatId, type WahaEnvelope, type WahaPayload } f
  * webhook devolvendo 200). O WhatsApp já tem `@newsletter` e `@broadcast` em
  * produção; o próximo formato reproduz o sintoma inteiro.
  *
- * A correção separa as duas coisas: grupo é descarte ESPERADO (silencioso, por
- * doutrina); desconhecido é descarte que precisa deixar rastro.
+ * A correção separa as duas coisas: desconhecido é descarte que precisa deixar
+ * rastro (`whatsapp.chat_id_not_recognized`). Grupo NÃO é mais descarte (desde
+ * a 0276: vira contato-fantasma + conversa, ver `ingest-grupo.test.ts`) — mas
+ * continua sem emitir esse aviso, porque não é anomalia, é um formato
+ * conhecido e tratado por caminho próprio.
  *
  * ⚠️ O RISCO DE INTRODUZIR ALGO PIOR mora no upsert de contato, e é por isso que
  * o caso de vazamento existe aqui. `fn_upsert_wa_contact` NÃO valida `p_kind`, e
- * `contacts.wa_identity` é coluna GERADA que só vira `phone:`/`lid:` — qualquer
- * outro kind produz `wa_identity` NULL. Como o `on conflict` da RPC é
+ * `contacts.wa_identity` é coluna GERADA que só vira `phone:`/`lid:`/`group:` —
+ * qualquer outro kind produz `wa_identity` NULL. Como o `on conflict` da RPC é
  * `(organization_id, wa_identity) WHERE wa_identity is not null`, uma linha NULL
  * nunca conflita: cada webhook criaria um CONTATO ÓRFÃO NOVO. É exatamente o
- * anti-pattern que a migration 0027 veio matar.
+ * anti-pattern que a migration 0027 veio matar. Grupo tem RPC própria
+ * (`fn_upsert_wa_group_contact`) — nunca deve chamar `fn_upsert_wa_contact`.
  */
 
 interface Duplo {
@@ -125,10 +129,10 @@ describe("o chat não reconhecido deixa rastro", () => {
     );
   });
 
-  it("grupo continua descartado EM SILÊNCIO — descarte esperado não vira ruído", async () => {
+  it("grupo NÃO emite o aviso de chat não reconhecido — é formato conhecido, não anomalia", async () => {
     // O controle que impede o teste de passar por acidente: se o aviso saísse em
     // todo descarte, as asserções acima passariam sem provar nada sobre o
-    // desconhecido. Grupo é skip por doutrina (CLAUDE.md), não anomalia.
+    // desconhecido. Grupo tem caminho próprio (0276) — não é "não sei ler isto".
     const { admin, rpcs } = bancoDeMentira();
 
     await dispatchWahaEvent(admin as never, SESSION as never, inbound("120363000000000000@g.us"), "req-1");
@@ -140,21 +144,25 @@ describe("o chat não reconhecido deixa rastro", () => {
   });
 });
 
-describe("o chat não reconhecido NÃO vira contato", () => {
-  it("nunca chama fn_upsert_wa_contact com kind fora de phone|lid", async () => {
+describe("o chat DESCONHECIDO não vira contato (grupo tem caminho próprio, ver ingest-grupo.test.ts)", () => {
+  it("nunca chama fn_upsert_wa_contact com kind fora de phone|lid — grupo usa fn_upsert_wa_group_contact", async () => {
     // Esta é a asserção que impede a correção de introduzir algo pior que o
     // defeito. `wa_identity` é gerada e fica NULL para qualquer outro kind; como
     // o `on conflict` da RPC exige `wa_identity is not null`, a linha nunca
     // conflita e NASCE UM CONTATO NOVO A CADA WEBHOOK.
     const { admin, rpcs, messages } = bancoDeMentira();
 
-    for (const chat of ["11111111111@newsletter", "status@broadcast", "120363000000000000@g.us"]) {
+    for (const chat of ["11111111111@newsletter", "status@broadcast"]) {
       await dispatchWahaEvent(admin as never, SESSION as never, inbound(chat), "req-1");
     }
 
     const kinds = rpcs.filter((c) => c.fn === "fn_upsert_wa_contact").map((c) => c.args.p_kind);
     expect(kinds, "vazou um kind não-endereçável para o upsert de contato").toEqual([]);
     expect(messages, "chat não endereçável não vira mensagem").toHaveLength(0);
+    expect(
+      rpcs.some((c) => c.fn === "fn_upsert_wa_contact" || c.fn === "fn_upsert_wa_group_contact"),
+      "chat desconhecido não deveria chamar upsert de contato nenhum",
+    ).toBe(false);
   });
 
   it("controle: chat endereçável continua virando contato", async () => {
