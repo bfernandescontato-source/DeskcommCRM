@@ -127,3 +127,48 @@ describe("MessageBubble — rótulo de origem", () => {
     }
   });
 });
+
+/**
+ * EM GRUPO, O BALÃO DIZ QUEM FALOU.
+ *
+ * A conversa do grupo é uma só; o que separa as pessoas é
+ * `metadata.group_participant_*`, gravado na ingestão. Como no WhatsApp: o nome
+ * quando existe, o telefone quando não, e nunca o id técnico (`123@lid`).
+ */
+describe("mensagem de grupo mostra quem falou", () => {
+  const deGrupo = (metadata: Record<string, unknown>, over: Partial<Message> = {}) =>
+    msg({ direction: "inbound", sent_via: "external_device", metadata: { is_group: true, ...metadata }, ...over });
+
+  it("⭐ mostra o NOME de quem falou", () => {
+    render(<MessageBubble message={deGrupo({ group_participant: "1@lid", group_participant_name: "Ana Souza" })} />);
+    expect(screen.getByText("Ana Souza")).toBeTruthy();
+  });
+
+  it("sem nome, mostra o TELEFONE — como o WhatsApp faz com número não salvo", () => {
+    render(<MessageBubble message={deGrupo({ group_participant: "1@lid", group_participant_phone: "+5511992299000" })} />);
+    expect(screen.getByText("+5511992299000")).toBeTruthy();
+  });
+
+  it("nunca mostra o id técnico do remetente", () => {
+    const { container } = render(<MessageBubble message={deGrupo({ group_participant: "273310747197632@lid" })} />);
+    expect(container.textContent).not.toContain("273310747197632");
+    expect(screen.getByText("Participante")).toBeTruthy();
+  });
+
+  it("CONTROLE: conversa comum (fora de grupo) não ganha nome de participante", () => {
+    render(<MessageBubble message={msg({ direction: "inbound", sent_via: "external_device", metadata: { group_participant_name: "Ana Souza" } })} />);
+    expect(screen.queryByText("Ana Souza")).toBeNull();
+  });
+
+  it("CONTROLE: o que NÓS mandamos no grupo não leva nome de participante", () => {
+    render(<MessageBubble message={msg({ direction: "outbound", metadata: { is_group: true, group_participant_name: "Ana Souza" } })} />);
+    expect(screen.queryByText("Ana Souza")).toBeNull();
+  });
+
+  it("⭐ a citação nomeia a PESSOA citada, e não 'Cliente'", () => {
+    const citada = deGrupo({ group_participant: "1@lid", group_participant_name: "Bia Lima" }, { id: "m0", body: "qual o preço?" });
+    render(<MessageBubble message={msg({ direction: "outbound", body: "R$ 10" })} citada={citada} />);
+    expect(screen.getByText("Bia Lima")).toBeTruthy();
+    expect(screen.queryByText("Cliente")).toBeNull();
+  });
+});

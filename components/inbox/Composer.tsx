@@ -1,4 +1,5 @@
 "use client";
+import { participanteDoGrupo } from "@/lib/inbox/participante-do-grupo";
 import { useT } from "@/hooks/i18n/useT";
 import {
   forwardRef,
@@ -51,7 +52,13 @@ interface Props {
    * Vem de fora e não daqui porque quem escolhe é a lista de mensagens: o
    * composer só precisa mostrar o que foi escolhido e mandá-lo junto.
    */
-  respondendo?: { id: string; body: string | null; direction: string } | null;
+  respondendo?: {
+    id: string;
+    body: string | null;
+    direction: string;
+    /** Em grupo, `metadata` diz QUEM falou — é o que dá nome ao "respondendo a". */
+    metadata?: Record<string, unknown> | null;
+  } | null;
   /** Desfaz a escolha — o `x` da faixa de citação. */
   onCancelarResposta?: () => void;
   /** Nome do contato da conversa, para interpolar {{nome}}/{{primeiro_nome}} do template escolhido. */
@@ -254,7 +261,9 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
           <div className="mb-1 flex items-start gap-2 rounded-md border-l-2 border-primary bg-muted/60 px-2 py-1.5">
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-medium text-primary">
-                {respondendo.direction === "outbound" ? t("Você") : t("Cliente")}
+                {respondendo.direction === "outbound"
+                  ? t("Você")
+                  : (participanteDoGrupo(respondendo)?.nome ?? t("Cliente"))}
               </div>
               <div className="line-clamp-2 text-xs text-muted-foreground">
                 {respondendo.body?.trim() || t("(sem texto)")}

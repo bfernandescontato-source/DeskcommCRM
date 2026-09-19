@@ -82,14 +82,19 @@ function bancoDeMentira(): Duplo {
 const SESSION = { id: "sessao-1", organization_id: "org-1" };
 const GRUPO = "120363000000000000@g.us";
 
-function inboundDeGrupo(author: string, msgId: string, quemEscreveu?: string): WahaEnvelope {
+function inboundDeGrupo(participant: string, msgId: string, quemEscreveu?: string, telefoneReal?: string): WahaEnvelope {
+  // O formato REAL deste WAHA (medido em webhook_events_log): `from` é o grupo,
+  // o remetente vem em `participant` e o telefone dele em `_data.key.participantAlt`.
   const payload: WahaPayload = {
     id: msgId,
     from: GRUPO,
-    author,
+    participant,
     fromMe: false,
     body: "oi pessoal",
-    ...(quemEscreveu ? { _data: { notifyName: quemEscreveu } } : {}),
+    _data: {
+      ...(quemEscreveu ? { pushName: quemEscreveu } : {}),
+      key: { participant, ...(telefoneReal ? { participantAlt: telefoneReal } : {}) },
+    },
   };
   return { event: "message.any", session: "default", payload };
 }
@@ -144,15 +149,49 @@ describe("contato-fantasma é por GRUPO, não por participante", () => {
     expect(conv?.args.p_contact).toBe("grupo-fantasma-1");
   });
 
-  it("a mensagem grava quem falou (p.author) em metadata, sem virar a identidade da conversa", async () => {
+  it("⭐ a mensagem grava QUEM falou (id, nome e telefone) em metadata, sem virar a identidade da conversa", async () => {
     const { admin, messages } = bancoDeMentira();
 
-    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("5511111111111@s.whatsapp.net", "false_g_5"), "req-1");
+    await dispatchWahaEvent(
+      admin as never,
+      SESSION as never,
+      inboundDeGrupo("273310747197632@lid", "false_g_5", "Ana Souza", "5511992299000@s.whatsapp.net"),
+      "req-1",
+    );
 
     expect(messages).toHaveLength(1);
     const meta = messages[0].metadata as Record<string, unknown>;
     expect(meta.is_group).toBe(true);
-    expect(meta.group_participant).toBe("5511111111111@s.whatsapp.net");
+    expect(meta.group_participant).toBe("273310747197632@lid");
+    expect(meta.group_participant_name).toBe("Ana Souza");
+    expect(meta.group_participant_phone).toBe("+5511992299000");
+  });
+
+  it("sem nome no WhatsApp, guarda o telefone (a tela mostra o número, como o WhatsApp)", async () => {
+    const { admin, messages } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("1@lid", "false_g_5b", undefined, "553175171297@s.whatsapp.net"), "req-1");
+
+    const meta = messages[0].metadata as Record<string, unknown>;
+    expect(meta.group_participant_name).toBeNull();
+    expect(meta.group_participant_phone).toBe("+553175171297");
+  });
+
+  it("quando o remetente já vem como número (@s.whatsapp.net), o telefone sai dele", async () => {
+    const { admin, messages } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("5522333344445@s.whatsapp.net", "false_g_5c"), "req-1");
+
+    expect((messages[0].metadata as Record<string, unknown>).group_participant_phone).toBe("+5522333344445");
+  });
+
+  it("a prévia da conversa diz QUEM falou — 'Ana Souza: oi pessoal' — como a lista do WhatsApp", async () => {
+    const { admin, rpcs } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, inboundDeGrupo("1@lid", "false_g_5d", "Ana Souza"), "req-1");
+
+    const marca = rpcs.find((c) => c.fn === "fn_mark_conversation_message");
+    expect(marca?.args.p_preview).toBe("Ana Souza: oi pessoal");
   });
 });
 
@@ -178,7 +217,9 @@ describe("o NOME do grupo vem do WAHA, nunca de quem escreveu", () => {
 
     const chamada = rpcs.find((c) => c.fn === "fn_upsert_wa_group_contact")!;
     expect(chamada.args.p_subject).toBe("Achados & Promoções #37");
-    expect(JSON.stringify(rpcs), "o nome da pessoa vazou para o nome do grupo").not.toContain("Diana Diniz");
+    // O nome do GRUPO (upsert do contato) nunca é o de quem falou. A prévia da
+    // conversa carrega o de quem falou de propósito — outro campo, outra pergunta.
+    expect(JSON.stringify(chamada.args), "o nome da pessoa vazou para o nome do grupo").not.toContain("Diana Diniz");
     expect(buscar).toHaveBeenCalledWith("org_x_sessao", GRUPO);
   });
 

@@ -63,13 +63,21 @@ const wahaMediaSchema = z.looseObject({
 const wahaKeySchema = z.looseObject({
   remoteJidAlt: texto,
   participantAlt: texto,
+  /** Em grupo: quem escreveu (`remoteJid` ali é o grupo). Lido por `participanteDaMensagemDeGrupo`. */
+  participant: texto,
 });
 
 export const wahaPayloadSchema = z.looseObject({
   id: texto,
   from: texto,
   to: texto,
-  /** Só populado em grupo: quem efetivamente escreveu (`from` ali é o grupo). */
+  /**
+   * Em grupo, `from` é o GRUPO e quem escreveu vem em `participant` (id do
+   * remetente, em geral `<lid>@lid`) — medido em `webhook_events_log`. `author`
+   * é o nome de outros engines do WAHA e fica como reserva; o telefone real do
+   * remetente chega em `_data.key.participantAlt`.
+   */
+  participant: texto,
   author: texto,
   fromMe: booleano,
   body: texto,

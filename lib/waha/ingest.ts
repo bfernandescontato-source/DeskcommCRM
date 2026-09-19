@@ -20,6 +20,7 @@ import { aplicarEfeitosPosEntrada } from "@/lib/channels/pos-entrada";
 import { pausarIaPorAtendimentoManual } from "@/lib/escalacao/atendimento-manual";
 import { acelerarPipelineDeEventos } from "@/lib/dev/kick-local-pipeline";
 import { canonicalPhoneBR } from "@/lib/channels/phone-variants";
+import { normalizePhoneForDisplay } from "@/lib/messaging/contact-card";
 import { estamparAtribuicaoDoContato } from "@/lib/leads/atribuicao-de-anuncio";
 import { extrairAtribuicaoWaha } from "@/lib/waha/atribuicao-de-anuncio";
 import type { createAdminClient } from "@/lib/supabase/admin";
@@ -351,13 +352,35 @@ function notifyNameOf(p: WahaPayload): string | null {
   return p._data?.notifyName ?? p._data?.pushName ?? null;
 }
 
+/** Quem escreveu uma mensagem de GRUPO. Cada campo pode faltar. */
+export interface QuemFalouNoGrupo {
+  /** Id do remetente (`<lid>@lid` ou `<número>@s.whatsapp.net`). */
+  jid: string | null;
+  /** O nome que ELE usa no WhatsApp — não o do grupo. */
+  nome: string | null;
+  /** Telefone real, E.164 (`+55…`). */
+  telefone: string | null;
+}
+
 /**
- * Em grupo, `p.from` é o ID do GRUPO — quem efetivamente escreveu vem em
- * `p.author` (CLAUDE.md:145, `lib/waha/README.md:18`). Fora de grupo o WAHA
- * não preenche este campo, por isso o fallback não é necessário aqui.
+ * Em grupo, `p.from` é o ID do GRUPO — quem escreveu vem em `p.participant`
+ * (medido em `webhook_events_log`: 100% das mensagens de grupo o trazem, quase
+ * sempre como `<lid>@lid`). `author` é o nome de outros engines do WAHA e fica
+ * de reserva. O telefone real vem em `_data.key.participantAlt` — é ele que
+ * `telefoneAlternativoDe` lê — ou no próprio id, quando este já é um número.
+ *
+ * O `pushName` do payload é o nome de quem FALOU. Foi exatamente o que, usado
+ * como nome do grupo, batizou os grupos com nome de pessoa (migration 0277).
  */
-function participanteDoGrupo(p: WahaPayload): string | null {
-  return p.author ?? null;
+export function quemFalouNoGrupo(p: WahaPayload): QuemFalouNoGrupo {
+  const jid = p.participant ?? p._data?.key?.participant ?? p.author ?? null;
+  const nome = notifyNameOf(p)?.trim() || null;
+  let telefone = telefoneAlternativoDe(p);
+  if (!telefone && jid) {
+    const id = parseChatId(jid);
+    if (id.kind === "phone") telefone = id.phone;
+  }
+  return { jid, nome: nome ? nome.slice(0, 120) : null, telefone };
 }
 
 /** Corpo textual: WAHA nem sempre preenche `body` em cartões de contato NOWEB. */
@@ -690,6 +713,7 @@ async function handleInboundGroup(
   if (!conversationId) return;
 
   const now = new Date().toISOString();
+  const quem = quemFalouNoGrupo(p);
   const { error: insertErr } = await admin
     .from("messages")
     .insert({
@@ -708,7 +732,14 @@ async function handleInboundGroup(
       sent_via: "external_device",
       sent_at: p.timestamp ? new Date(p.timestamp * 1000).toISOString() : now,
       delivered_at: now,
-      metadata: { raw_type: p.type, ack_name: p.ackName, is_group: true, group_participant: participanteDoGrupo(p) },
+      metadata: {
+        raw_type: p.type,
+        ack_name: p.ackName,
+        is_group: true,
+        group_participant: quem.jid,
+        group_participant_name: quem.nome,
+        group_participant_phone: quem.telefone,
+      },
     })
     .select("id")
     .maybeSingle();
@@ -722,7 +753,11 @@ async function handleInboundGroup(
   }
   if (insertErr) return;
 
-  await markConversation(admin, session.organization_id, conversationId, "inbound", previewFromMessage(p), p.timestamp ? new Date(p.timestamp * 1000).toISOString() : now);
+  // Na lista, a última mensagem de um grupo diz QUEM falou ("Ana: bom dia"),
+  // como no WhatsApp — sem isso a linha do grupo não diz de quem é o texto.
+  const remetente = quem.nome ?? (quem.telefone ? normalizePhoneForDisplay(quem.telefone) : null);
+  const previa = remetente ? `${remetente}: ${previewFromMessage(p)}`.slice(0, 280) : previewFromMessage(p);
+  await markConversation(admin, session.organization_id, conversationId, "inbound", previa, p.timestamp ? new Date(p.timestamp * 1000).toISOString() : now);
 
   await audit({
     action: "message.received",

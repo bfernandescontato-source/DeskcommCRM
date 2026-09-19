@@ -7,6 +7,7 @@ import { ArrowBendUpLeft, Check, Checks, Robot, WarningOctagon } from "@/lib/ui/
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Message } from "@/lib/types/messaging";
+import { corDoParticipante, participanteDoGrupo } from "@/lib/inbox/participante-do-grupo";
 import { CitationButton } from "@/components/ai/CitationButton";
 import { MediaRenderer } from "@/components/inbox/media/MediaRenderer";
 import { ContactCard } from "@/components/inbox/media/ContactCard";
@@ -70,6 +71,10 @@ export function MessageBubble({
   // para tirar do ar.
   const apagada = Boolean(message.revoked_at);
   const editada = Boolean(message.edited_at) && !apagada;
+  // Em grupo, QUEM falou: o nome (ou o telefone) por cima da bolha, com a cor
+  // fixa da pessoa — como no WhatsApp. `null` fora de grupo e nas nossas.
+  const participante = participanteDoGrupo(message);
+  const autorDaCitada = citada ? participanteDoGrupo(citada) : null;
   const aiGenerated = isAiGeneratedMessage(message.metadata);
   const citations = extractCitations(message.metadata);
   const showCitationButton =
@@ -162,6 +167,16 @@ export function MessageBubble({
           isFailed && "border border-destructive",
         )}
       >
+        {participante && (
+          <div
+            className={cn(
+              "mb-0.5 truncate text-[12px] font-semibold",
+              corDoParticipante(participante.chave),
+            )}
+          >
+            {participante.nome}
+          </div>
+        )}
         {/*
           A CITAÇÃO, dentro da bolha e acima do texto — o fio.
 
@@ -178,7 +193,7 @@ export function MessageBubble({
             )}
           >
             <div className="font-medium opacity-80">
-              {citada.direction === "outbound" ? t("Você") : t("Cliente")}
+              {citada.direction === "outbound" ? t("Você") : (autorDaCitada?.nome ?? t("Cliente"))}
             </div>
             {/*
               A CITADA PODE TER SIDO APAGADA — e aí o texto dela não volta aqui.
