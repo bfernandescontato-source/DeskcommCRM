@@ -276,6 +276,55 @@ const PARES: Array<{
     simbolo: "SITUACOES_DA_TAREFA",
   },
   {
+    tabela: "campaigns",
+    coluna: "status",
+    // Central de Disparos (0280): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_STATUSES",
+  },
+  {
+    tabela: "campaigns",
+    coluna: "channel_policy",
+    // Central de Disparos (0280): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_CHANNEL_POLICIES",
+  },
+  {
+    tabela: "campaign_contacts",
+    coluna: "status",
+    // Central de Disparos (0280): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_CONTACT_STATUSES",
+  },
+  {
+    tabela: "campaign_contacts",
+    coluna: "skip_reason",
+    // Central de Disparos (0280): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_SKIP_REASONS",
+  },
+  {
+    tabela: "campaign_destinations",
+    coluna: "status",
+    // Central de Disparos (0280): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_DESTINATION_STATUSES",
+  },
+  {
+    tabela: "campaign_destinations",
+    coluna: "close_reason",
+    // Central de Disparos (0280): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_DESTINATION_CLOSE_REASONS",
+  },
+  {
+    tabela: "campaign_events",
+    coluna: "kind",
+    // Central de Disparos (0280): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_EVENT_KINDS",
+  },
+  {
     tabela: "team_invites",
     coluna: "role",
     // lib/schemas/team.ts → ROLES (tupla `as const`). O `z.enum(ROLES)` das
