@@ -602,6 +602,8 @@ export const AUDIT_ACTIONS = [
   "campaign.version_created",
   "campaign.destination_added",
   "campaign.destination_changed",
+  // Fim de uma importação de CSV: quantos entraram e quantos foram recusados (por motivo) em metadata.
+  "campaign.imported",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

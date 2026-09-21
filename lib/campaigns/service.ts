@@ -47,13 +47,13 @@ export class CampanhaError extends Error {
   }
 }
 
-async function rpc<T>(db: Db, fn: string, args: Record<string, unknown>): Promise<T> {
+export async function rpc<T>(db: Db, fn: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await db.rpc(fn, args);
   if (error) throw new CampanhaError(erroDaCampanha(error));
   return data as T;
 }
 
-async function ler<T>(consulta: PromiseLike<{ data: T | null; error: { message?: string; code?: string } | null }>): Promise<T | null> {
+export async function ler<T>(consulta: PromiseLike<{ data: T | null; error: { message?: string; code?: string } | null }>): Promise<T | null> {
   const { data, error } = await consulta;
   if (error) throw new CampanhaError(erroDaCampanha(error));
   return data;

@@ -43,6 +43,9 @@ const TABELA: Record<string, Omit<ErroDeCampanha, "details">> = {
   campaign_version_conflict: { code: "version_conflict", status: 409, message: "A mensagem foi alterada por outra pessoa enquanto você editava. Recarregue para ver a versão atual." },
   campaign_destination_conflict: { code: "destination_conflict", status: 409, message: "O destino foi trocado por outra pessoa. Recarregue para ver o destino atual." },
   campaign_destination_closed: { code: "destination_closed", status: 409, message: "Este destino já foi encerrado. Cadastre um novo grupo." },
+  campaign_import_not_found: { code: "import_not_found", status: 404, message: "Importação não encontrada." },
+  campaign_import_locked: { code: "import_locked", status: 409, message: "Esta importação não aceita mais mudanças." },
+  campaign_import_not_validated: { code: "import_not_validated", status: 409, message: "Valide o arquivo antes de importar." },
   campaign_version_immutable: { code: "version_immutable", status: 409, message: "Versões de mensagem não podem ser editadas; crie uma nova versão." },
 };
 

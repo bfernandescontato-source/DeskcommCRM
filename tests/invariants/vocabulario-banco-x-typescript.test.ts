@@ -325,6 +325,27 @@ const PARES: Array<{
     simbolo: "CAMPAIGN_EVENT_KINDS",
   },
   {
+    tabela: "campaign_imports",
+    coluna: "status",
+    // Central de Disparos (0281): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_IMPORT_STATUSES",
+  },
+  {
+    tabela: "campaign_import_rows",
+    coluna: "status",
+    // Central de Disparos (0281): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_IMPORT_ROW_STATUSES",
+  },
+  {
+    tabela: "campaign_import_rows",
+    coluna: "reason",
+    // Central de Disparos (0281): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_IMPORT_REJECT_REASONS",
+  },
+  {
     tabela: "team_invites",
     coluna: "role",
     // lib/schemas/team.ts → ROLES (tupla `as const`). O `z.enum(ROLES)` das

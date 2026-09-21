@@ -114,3 +114,22 @@ export type CriarCampanhaInput = z.infer<typeof criarCampanhaSchema>;
 export type AtualizarCampanhaInput = z.infer<typeof atualizarCampanhaSchema>;
 export type VersaoInput = z.infer<typeof versaoSchema>;
 export type DestinoInput = z.infer<typeof destinoSchema>;
+
+/** O mapeamento de colunas que o operador confirma na prévia. Índices contam a partir de 0. */
+export const mapeamentoSchema = z
+  .object({
+    phone: z.number().int().min(0).max(199),
+    name: z.number().int().min(0).max(199).nullable().default(null),
+    email: z.number().int().min(0).max(199).nullable().default(null),
+    extras: z
+      .array(z.object({ key: z.string().regex(/^[a-z0-9_]{1,40}$/), index: z.number().int().min(0).max(199) }).strict())
+      .max(30)
+      .default([]),
+  })
+  .strict();
+
+export const rejeitadosQuerySchema = z.object({
+  after: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+  format: z.enum(["json", "csv"]).default("json"),
+});

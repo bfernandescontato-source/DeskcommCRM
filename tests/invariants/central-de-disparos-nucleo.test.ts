@@ -69,11 +69,18 @@ beforeAll(() => {
     insert into auth.users (id, email) values ('${USER_B}', 'disp-b@invariant.test') on conflict do nothing;
     insert into public.user_organizations (user_id, organization_id, role, accepted_at)
       values ('${USER_B}', '${ORG_B}', 'admin', now()) on conflict do nothing;
+    -- Um DO por linha: a colisão de UMA (outro arquivo já criou o canal) não pode desfazer as demais.
     do $f$ begin
       insert into public.channel_sessions (id, organization_id, waha_session_name, webhook_secret_encrypted, status)
-        values ('${CH_A}', '${ORG}', 'disp-a', '\\x00'::bytea, 'WORKING'),
-               ('${CH_B}', '${ORG}', 'disp-c', '\\x00'::bytea, 'WORKING'),
-               ('${CH_OUTRA_ORG}', '${ORG_B}', 'disp-d', '\\x00'::bytea, 'WORKING');
+        values ('${CH_A}', '${ORG}', 'disp-a', '\\x00'::bytea, 'WORKING');
+    exception when unique_violation then null; end $f$;
+    do $f$ begin
+      insert into public.channel_sessions (id, organization_id, waha_session_name, webhook_secret_encrypted, status)
+        values ('${CH_B}', '${ORG}', 'disp-c', '\\x00'::bytea, 'WORKING');
+    exception when unique_violation then null; end $f$;
+    do $f$ begin
+      insert into public.channel_sessions (id, organization_id, waha_session_name, webhook_secret_encrypted, status)
+        values ('${CH_OUTRA_ORG}', '${ORG_B}', 'disp-d', '\\x00'::bytea, 'WORKING');
     exception when unique_violation then null; end $f$;
   `);
 });

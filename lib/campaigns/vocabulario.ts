@@ -95,3 +95,22 @@ export type CampaignAction = (typeof CAMPAIGN_ACTIONS)[number];
 
 /** Estados dos quais uma campanha nunca sai. */
 export const CAMPAIGN_TERMINAL_STATUSES: readonly CampaignStatus[] = ["completed", "cancelled"];
+
+/** Estados de uma importação de CSV (`campaign_imports.status`). */
+export const CAMPAIGN_IMPORT_STATUSES = ["uploaded", "validated", "importing", "done", "cancelled"] as const;
+export type CampaignImportStatus = (typeof CAMPAIGN_IMPORT_STATUSES)[number];
+
+/** Estado de cada linha do arquivo dentro da staging (`campaign_import_rows.status`). */
+export const CAMPAIGN_IMPORT_ROW_STATUSES = ["raw", "valid", "rejected", "imported"] as const;
+export type CampaignImportRowStatus = (typeof CAMPAIGN_IMPORT_ROW_STATUSES)[number];
+
+/** Por que uma linha do arquivo não entrou (`campaign_import_rows.reason`). */
+export const CAMPAIGN_IMPORT_REJECT_REASONS = [
+  "empty_phone",
+  "invalid_phone",
+  "invalid_email",
+  "duplicate_in_file",
+  "already_in_campaign",
+  "bad_row",
+] as const;
+export type CampaignImportRejectReason = (typeof CAMPAIGN_IMPORT_REJECT_REASONS)[number];

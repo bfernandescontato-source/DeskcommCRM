@@ -592,6 +592,12 @@ export const DICIONARIO: Traducoes = {
   Voltar: { es: "Volver" },
   // ─── Configurações: hub, perfil e tenant ───
   "Dados inválidos.": { es: "Datos inválidos." },
+  "Importação não encontrada.": { es: "Importación no encontrada." },
+  "Esta importação não aceita mais mudanças.": { es: "Esta importación ya no acepta cambios." },
+  "Valide o arquivo antes de importar.": { es: "Valida el archivo antes de importar." },
+  "Arquivo maior que": { es: "Archivo mayor que" },
+  "Colunas demais no arquivo (máximo": { es: "Demasiadas columnas en el archivo (máximo" },
+  "Linhas demais no arquivo (máximo": { es: "Demasiadas filas en el archivo (máximo" },
   "Erro ao processar a campanha.": { es: "Error al procesar la campaña." },
   "Não encontrado.": { es: "No encontrado." },
   "Campanha não encontrada.": { es: "Campaña no encontrada." },
