@@ -26,6 +26,7 @@ export type AcaoDeCampanha =
   | "editar_mensagem"
   | "trocar_destino"
   | "trocar_canais"
+  | "resolver_incerto"
   | AcaoDaApi;
 
 export const PAPEL_MINIMO: Record<AcaoDeCampanha, Role> = {
@@ -36,6 +37,7 @@ export const PAPEL_MINIMO: Record<AcaoDeCampanha, Role> = {
   editar_mensagem: "manager",
   trocar_destino: "manager",
   trocar_canais: "manager",
+  resolver_incerto: "manager",
   ready: "manager",
   pause: "manager",
   resume: "manager",

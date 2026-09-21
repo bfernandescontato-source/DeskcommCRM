@@ -7,7 +7,7 @@
  */
 import { z } from "zod";
 
-import { CAMPAIGN_CHANNEL_POLICIES } from "./vocabulario";
+import { CAMPAIGN_CHANNEL_POLICIES, CAMPAIGN_CONTACT_STATUSES } from "./vocabulario";
 
 const nomeDaCampanha = z.string().trim().min(1).max(120);
 const uuid = z.string().uuid();
@@ -137,3 +137,24 @@ export const rejeitadosQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
   format: z.enum(["json", "csv"]).default("json"),
 });
+
+/** Filtros da Fila. `status` aceita vários separados por vírgula (`?status=pending,queued`). */
+export const filaQuerySchema = z.object({
+  status: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(",").map((x) => x.trim()).filter(Boolean) : undefined))
+    .pipe(z.array(z.enum(CAMPAIGN_CONTACT_STATUSES)).max(8).optional()),
+  channel: uuid.optional(),
+  destination: uuid.optional(),
+  version: uuid.optional(),
+  clicked: z.enum(["true"]).optional().transform((v) => v === "true"),
+  replied: z.enum(["true"]).optional().transform((v) => v === "true"),
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  q: z.string().trim().max(80).optional(),
+  after: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export const resolverIncertoSchema = z.object({ resolution: z.enum(["sent", "retry", "failed"]) }).strict();
