@@ -6,16 +6,19 @@
  * caixa de atendimento que já existe (mesma conversa, mesmo contato) em vez de numa
  * segunda caixa.
  *
- * ─── A conversa que a campanha cria fica ESCONDIDA até a pessoa responder ─────
- * 45 mil envios criariam 45 mil conversas. A conversa nova nasce marcada
- * `metadata.campaign.hidden_until_reply`; quem responde a "acorda" (a marca é retirada
- * quando chega a primeira mensagem dela) e só então aparece na lista. Uma conversa que
- * já existia — o cliente que já conversava com o atendente — NUNCA é escondida.
+ * ─── A conversa da campanha NÃO ocupa o atendimento ───────────────────────────
+ * 45 mil envios criariam 45 mil conversas abertas: cada uma seria roteada a um atendente e
+ * entraria na fila. Por isso a conversa é aberta por `fn_campaign_open_conversation`, e não
+ * por `ensureConversation` (que reabriria até a conversa fechada de quem já foi cliente):
+ *
+ *   - conversa NOVA nasce `archived` — fora da lista de trabalho, do roteamento e da fila;
+ *     quando a pessoa RESPONDE, o mecanismo que o CRM já tem a reabre e a roteia;
+ *   - conversa que JÁ EXISTIA não é tocada (nem reaberta, nem escondida): a mensagem da
+ *     campanha entra nela como qualquer outra.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { sendMessageHandler } from "@/app/api/v1/messages/_handler";
-import { ensureConversation } from "@/lib/automation/start-conversation";
 
 export interface EnvioDeTexto {
   orgId: string;
@@ -49,23 +52,13 @@ const ENVIADA = new Set(["sent", "delivered", "read"]);
 
 export function enviarTextoPelaCentral(admin: SupabaseClient): (envio: EnvioDeTexto) => Promise<ResultadoDoEnvio> {
   return async (e) => {
-    const conversaId = await ensureConversation(admin, e.orgId, e.contactId, e.channelId);
-
-    // Só esconde a conversa que a CAMPANHA acabou de criar: sem nenhuma mensagem antes.
-    const { data: antes } = await admin
-      .from("conversations")
-      .select("last_message_at, metadata")
-      .eq("id", conversaId)
-      .eq("organization_id", e.orgId)
-      .maybeSingle();
-    const conversa = antes as { last_message_at: string | null; metadata: Record<string, unknown> | null } | null;
-    if (conversa && conversa.last_message_at === null) {
-      await admin
-        .from("conversations")
-        .update({ metadata: { ...(conversa.metadata ?? {}), campaign: { id: e.campaignId, hidden_until_reply: true } } })
-        .eq("id", conversaId)
-        .eq("organization_id", e.orgId);
-    }
+    const { data: aberta, error: erroDaConversa } = await admin.rpc("fn_campaign_open_conversation", {
+      p_org: e.orgId,
+      p_contact: e.contactId,
+      p_channel: e.channelId,
+    });
+    if (erroDaConversa) throw new Error(`fn_campaign_open_conversation: ${erroDaConversa.message}`);
+    const conversaId = (aberta as { conversation_id: string }).conversation_id;
 
     const msg = await sendMessageHandler(
       admin,
@@ -76,7 +69,13 @@ export function enviarTextoPelaCentral(admin: SupabaseClient): (envio: EnvioDeTe
         actor: { type: "webhook_source", id: e.campaignContactId },
         requestId: `campaign:${e.campaignContactId}`,
       },
-      { conversation_id: conversaId, type: "text", body: e.texto } as Parameters<typeof sendMessageHandler>[2],
+      {
+        conversation_id: conversaId,
+        type: "text",
+        body: e.texto,
+        // Fica na própria mensagem: de qual campanha e de qual linha ela saiu.
+        metadata: { campaign_id: e.campaignId, campaign_contact_id: e.campaignContactId },
+      } as Parameters<typeof sendMessageHandler>[2],
     );
 
     if (ENVIADA.has(msg.status)) {
