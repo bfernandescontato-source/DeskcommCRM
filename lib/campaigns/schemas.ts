@@ -54,6 +54,10 @@ export const atualizarCampanhaSchema = z
     name: nomeDaCampanha.optional(),
     tracking_enabled: z.boolean().optional(),
     channel_policy: z.enum(CAMPAIGN_CHANNEL_POLICIES).optional(),
+    /** Intervalo FIXO entre dois envios do mesmo número, em segundos. */
+    send_interval_seconds: z.number().int().min(10).max(3600).optional(),
+    /** Teto da campanha por número por dia; `null` volta ao teto do próprio número. */
+    daily_cap_per_channel: z.number().int().min(1).max(5000).nullable().optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: "Informe ao menos um campo." });

@@ -23,6 +23,8 @@ export interface CampanhaLinha {
   active_destination_id: string | null;
   tracking_enabled: boolean;
   channel_policy: CampaignChannelPolicy;
+  send_interval_seconds: number;
+  daily_cap_per_channel: number | null;
   revision: number;
   started_at: string | null;
   paused_at: string | null;

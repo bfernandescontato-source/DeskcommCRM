@@ -29,6 +29,7 @@ const config: VercelConfig = {
     { path: "/api/v1/cron/event-log-drain", schedule: "* * * * *" },
     { path: "/api/v1/cron/routing-worker", schedule: "* * * * *" },
     { path: "/api/v1/cron/recover-stuck-messages", schedule: "* * * * *" },
+    { path: "/api/v1/cron/campaign-dispatcher", schedule: "* * * * *" },
     { path: "/api/v1/cron/storage-redaction", schedule: "*/5 * * * *" },
     { path: "/api/v1/cron/snooze-watcher", schedule: "*/5 * * * *" },
     { path: "/api/v1/cron/webhook-log-retention", schedule: "*/5 * * * *" },

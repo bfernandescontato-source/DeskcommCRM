@@ -109,7 +109,8 @@ export interface SugestaoDeMapeamento {
 export function sugerirMapeamento(headers: string[]): SugestaoDeMapeamento {
   const { indices } = mapHeader(headers);
   const phone = indices.phone_number ?? null;
-  const name = indices.name ?? indices.display_name ?? null;
+  // A coluna de nome do ARQUIVO (índice), não o nome de uma pessoa: por isso não é a cadeia de rótulo do contato.
+  const name = [indices.name, indices.display_name].find((i) => i !== undefined) ?? null;
   const email = indices.email ?? null;
   const usadas = new Set<number>([phone, name, email].filter((i): i is number => i !== null));
   const chavesVistas = new Set<string>(VARIAVEIS_DO_SISTEMA);

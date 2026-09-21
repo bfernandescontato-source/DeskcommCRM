@@ -60,7 +60,7 @@ export async function ler<T>(consulta: PromiseLike<{ data: T | null; error: { me
 }
 
 const COLUNAS_DA_CAMPANHA =
-  "id, organization_id, name, status, status_reason, active_version_id, active_destination_id, tracking_enabled, channel_policy, revision, started_at, paused_at, finished_at, created_by, created_at, updated_at";
+  "id, organization_id, name, status, status_reason, active_version_id, active_destination_id, tracking_enabled, channel_policy, send_interval_seconds, daily_cap_per_channel, revision, started_at, paused_at, finished_at, created_by, created_at, updated_at";
 const COLUNAS_DA_VERSAO = "id, version_no, body, created_by, created_at, activated_at, superseded_at";
 const COLUNAS_DO_DESTINO =
   "id, sequence_no, name, invite_url, group_chat_id, capacity, status, opened_at, closed_at, close_reason, created_at";
@@ -96,6 +96,10 @@ export async function atualizarConfiguracao(
     p_name: input.name ?? null,
     p_tracking_enabled: input.tracking_enabled ?? null,
     p_channel_policy: input.channel_policy ?? null,
+    p_send_interval_seconds: input.send_interval_seconds ?? null,
+    p_daily_cap_per_channel: input.daily_cap_per_channel ?? null,
+    // `null` explícito = voltar ao teto do número; ausente = não mexer.
+    p_clear_daily_cap: input.daily_cap_per_channel === null,
   });
 }
 

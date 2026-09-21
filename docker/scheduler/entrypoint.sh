@@ -62,6 +62,7 @@ CRONS="
 * * * * *|45|api/v1/cron/event-log-drain
 * * * * *|25|api/v1/cron/routing-worker
 * * * * *|25|api/v1/cron/recover-stuck-messages
+* * * * *|25|api/v1/cron/campaign-dispatcher
 */5 * * * *|25|api/v1/cron/storage-redaction?limit=50
 */5 * * * *|25|api/v1/cron/snooze-watcher
 */5 * * * *|60|api/v1/cron/webhook-log-retention
