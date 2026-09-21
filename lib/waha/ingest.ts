@@ -25,6 +25,7 @@ import { estamparAtribuicaoDoContato } from "@/lib/leads/atribuicao-de-anuncio";
 import { extrairAtribuicaoWaha } from "@/lib/waha/atribuicao-de-anuncio";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { ackToStatus } from "@/lib/types/messaging";
+import { registrarAvisoDeGrupo, type ClienteRpc } from "@/lib/campaigns/grupos";
 import type { WahaEnvelope, WahaPayload } from "@/lib/waha/envelope";
 import { bareWaMessageId, chatIdFromWaMessageId } from "@/lib/waha/message-id";
 import { logger } from "@/lib/logger";
@@ -1296,5 +1297,9 @@ export async function dispatchWahaEvent(
     await handleMessageRevoked(admin, session, payload);
   } else if (eventType === "session.status" || eventType === "state.change") {
     await handleSessionStatus(admin, session, payload);
+  } else if (eventType === "group.v2.participants") {
+    // Entrada/saída de alguém num grupo. Só interessa se o grupo for destino de uma campanha da
+    // Central de Disparos (o banco decide); NUNCA pode derrubar a ingestão — a função engole erro.
+    await registrarAvisoDeGrupo(admin as unknown as ClienteRpc, session, eventType, payload as Record<string, unknown>);
   }
 }

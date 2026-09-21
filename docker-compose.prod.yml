@@ -147,7 +147,9 @@ services:
       # de mensagem dos dois eventos em 22.815 mensagens reais, os que chegaram
       # SÓ por `message` foram ZERO, e 1.642 chegaram só por `message.any` (os
       # que saíram de nós, que `message` não cobre). Superconjunto estrito.
-      WHATSAPP_HOOK_EVENTS: "message.any,message.ack,message.edited,message.revoked,session.status,state.change"
+      # `group.v2.participants` é a única evidência de entrada/saída: sem ele a
+      # Central mostra "não medido", nunca uma ocupação falsamente zerada.
+      WHATSAPP_HOOK_EVENTS: "message.any,message.ack,message.edited,message.revoked,session.status,state.change,group.v2.participants"
       WHATSAPP_HOOK_HMAC: ${WAHA_HMAC_SECRET}
       # WAHA lê WHATSAPP_DEFAULT_ENGINE (NÃO WAHA_DEFAULT_ENGINE — o nome errado
       # fazia cair no default WEBJS, engine com browser que trava/corrompe a sessão

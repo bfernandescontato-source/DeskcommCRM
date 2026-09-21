@@ -353,6 +353,19 @@ const PARES: Array<{
     simbolo: "CAMPAIGN_CLICK_AGENT_CLASSES",
   },
   {
+    tabela: "campaign_group_events",
+    coluna: "kind",
+    // Central de Disparos (0286): nasce com o par no mesmo commit da migration.
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_GROUP_EVENT_KINDS",
+  },
+  {
+    tabela: "campaign_group_events",
+    coluna: "attribution",
+    arquivo: "lib/campaigns/vocabulario.ts",
+    simbolo: "CAMPAIGN_GROUP_EVENT_ATTRIBUTIONS",
+  },
+  {
     tabela: "team_invites",
     coluna: "role",
     // lib/schemas/team.ts → ROLES (tupla `as const`). O `z.enum(ROLES)` das

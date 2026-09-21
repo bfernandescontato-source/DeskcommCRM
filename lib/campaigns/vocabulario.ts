@@ -118,3 +118,11 @@ export type CampaignImportRejectReason = (typeof CAMPAIGN_IMPORT_REJECT_REASONS)
 /** Quem fez o clique (`campaign_clicks.agent_class`). Só `browser` conta como pessoa. */
 export const CAMPAIGN_CLICK_AGENT_CLASSES = ["browser", "preview", "bot"] as const;
 export type CampaignClickAgentClass = (typeof CAMPAIGN_CLICK_AGENT_CLASSES)[number];
+
+/** Aviso de grupo do WhatsApp (`campaign_group_events.kind`): alguém entrou ou saiu. */
+export const CAMPAIGN_GROUP_EVENT_KINDS = ["join", "leave"] as const;
+export type CampaignGroupEventKind = (typeof CAMPAIGN_GROUP_EVENT_KINDS)[number];
+
+/** Como um aviso de grupo foi ligado a um contato da campanha (`campaign_group_events.attribution`). */
+export const CAMPAIGN_GROUP_EVENT_ATTRIBUTIONS = ["phone_match", "lid_match", "unattributed"] as const;
+export type CampaignGroupEventAttribution = (typeof CAMPAIGN_GROUP_EVENT_ATTRIBUTIONS)[number];
