@@ -27629,7 +27629,7 @@ begin
     raise exception 'campaign_no_message' using errcode = 'P0001';
   end if;
   select body into v_body from public.campaign_message_versions where id = c.active_version_id;
-  if c.active_destination_id is null and v_body ~ '\{\{\s*link_grupo\s*\}\}' then
+  if c.active_destination_id is null and v_body ~* '\{\{\s*link_grupo\s*\}\}' then
     raise exception 'campaign_no_destination' using errcode = 'P0001';
   end if;
   if not exists (select 1 from public.campaign_channels where campaign_id = p_campaign and enabled) then
@@ -27831,7 +27831,7 @@ begin
   if c.active_destination_id is not null then
     select * into d from public.campaign_destinations where id = c.active_destination_id;
   end if;
-  if c.active_destination_id is null and v.body ~ '\{\{\s*link_grupo\s*\}\}' then
+  if c.active_destination_id is null and v.body ~* '\{\{\s*link_grupo\s*\}\}' then
     update public.campaign_contacts
        set status = 'pending', claim_token = null, lease_expires_at = null,
            channel_session_id = null, updated_at = now()

@@ -313,7 +313,7 @@ export async function listarEventos(
   db: Db,
   orgId: string,
   campaignId: string,
-  opcoes: { cursor?: string; limit: number; contactCampaignId?: string },
+  opcoes: { cursor?: string; limit: number; contactCampaignId?: string; somenteDaCampanha?: boolean },
 ): Promise<{ eventos: EventoLinha[]; nextCursor: string | null }> {
   let consulta = db
     .from("campaign_events")
@@ -324,6 +324,7 @@ export async function listarEventos(
     .order("id", { ascending: false })
     .limit(opcoes.limit + 1);
   if (opcoes.contactCampaignId) consulta = consulta.eq("campaign_contact_id", opcoes.contactCampaignId);
+  else if (opcoes.somenteDaCampanha) consulta = consulta.is("campaign_contact_id", null);
   if (opcoes.cursor) {
     const c = decodificarCursorDeEventos(opcoes.cursor);
     if (!c) throw new CampanhaError({ code: "validation_failed", status: 422, message: "Cursor inválido." });

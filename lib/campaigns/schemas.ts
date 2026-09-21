@@ -112,6 +112,8 @@ export const eventosQuerySchema = z.object({
   cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
   contact: uuid.optional(),
+  /** `campaign` = só o que aconteceu com a campanha (iniciar, pausar, trocar mensagem…), sem os envios de cada contato. */
+  scope: z.enum(["all", "campaign"]).default("all"),
 });
 
 export type CriarCampanhaInput = z.infer<typeof criarCampanhaSchema>;

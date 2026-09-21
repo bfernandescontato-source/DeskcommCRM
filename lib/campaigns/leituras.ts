@@ -11,10 +11,14 @@ import { phoneForDisplay } from "@/lib/channels/phone-variants";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 
 import { calcularAlertas, type Alerta } from "./alertas";
+import { estadoDoContato, type EstadoDoContato } from "./formato";
 import { carregarRitmoDoCanal, decidirEnvio, enviadosHojePelaCampanha, type VetoDeRitmo } from "./ritmo";
 import { detalharCampanha, ler, rpc, CampanhaError, type Db } from "./service";
 import type { EventoLinha } from "./tipos";
 import type { CampaignContactStatus } from "./vocabulario";
+
+// A derivação do estado mora em `formato.ts` (pura, a tela também a usa); reexportada para quem já importava daqui.
+export { estadoDoContato, type EstadoDoContato };
 
 const FUSO_PADRAO = "America/Sao_Paulo";
 
@@ -113,9 +117,10 @@ interface LinhaCrua {
 /** O join do PostgREST devolve objeto ou array conforme a cardinalidade inferida. */
 const um = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
 
-export function rotuloDoNumero(c: { display_name: string | null; phone_number: string | null } | null): string | null {
-  if (!c) return null;
-  return c.display_name?.trim() || phoneForDisplay(c.phone_number) || null;
+/** Como um NÚMERO DE ENVIO (sessão de canal, não contato) se chama na tela. */
+export function rotuloDoNumero(session: { display_name: string | null; phone_number: string | null } | null): string | null {
+  if (!session) return null;
+  return session.display_name?.trim() || phoneForDisplay(session.phone_number) || null;
 }
 
 export function linhaDaFila(l: LinhaCrua): LinhaDaFila {
@@ -180,23 +185,6 @@ export async function listarFila(db: Db, orgId: string, campaignId: string, f: F
 }
 
 // ── estado derivado do contato ──────────────────────────────────────────────
-
-export type EstadoDoContato = "NO_GRUPO" | "SAIU_DO_GRUPO" | "RESPONDEU" | "CLICOU" | "ENVIADO" | "PENDENTE" | "PROCESSANDO" | "FALHOU" | "INCERTO" | "IGNORADO" | "CANCELADO";
-
-/**
- * Onde a pessoa está AGORA, do estágio mais avançado para o menos. Engajamento não é status:
- * quem foi enviado, clicou, respondeu e entrou no grupo é, hoje, "no grupo".
- */
-export function estadoDoContato(c: { status: CampaignContactStatus; clicked_at: string | null; replied_at: string | null; joined_at: string | null; left_at: string | null }): EstadoDoContato {
-  if (c.status === "sent") {
-    if (c.left_at) return "SAIU_DO_GRUPO";
-    if (c.joined_at) return "NO_GRUPO";
-    if (c.replied_at) return "RESPONDEU";
-    if (c.clicked_at) return "CLICOU";
-    return "ENVIADO";
-  }
-  return { pending: "PENDENTE", queued: "PENDENTE", processing: "PROCESSANDO", failed: "FALHOU", uncertain: "INCERTO", skipped: "IGNORADO", cancelled: "CANCELADO" }[c.status] as EstadoDoContato;
-}
 
 // ── perfil do contato ───────────────────────────────────────────────────────
 

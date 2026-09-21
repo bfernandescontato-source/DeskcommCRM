@@ -35,6 +35,7 @@ export async function GET(req: NextRequest, { params }: RouteParams): Promise<Re
       cursor: query.data.cursor,
       limit: query.data.limit,
       contactCampaignId: query.data.contact,
+      somenteDaCampanha: query.data.scope === "campaign",
     });
     const nomes = await nomesDeQuemAgiu(c.db, c.org.orgId, eventos.map((e) => e.actor_user_id));
     const comAutor = eventos.map((e) => ({ ...e, actor_name: e.actor_user_id ? (nomes.get(e.actor_user_id) ?? null) : null }));

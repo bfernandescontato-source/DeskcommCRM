@@ -227,6 +227,15 @@ describe("Central de Disparos — schema e permissões", () => {
 // ── máquina de estados ──────────────────────────────────────────────────────
 
 describe("Central de Disparos — estados da campanha", () => {
+  it("{{Link_Grupo}} em outra caixa também exige destino: o envio resolve a variável sem olhar maiúscula", () => {
+    const id = q(`select public.fn_campaign_create('${ORG}', 'Caixa', '${GOV_ADMIN}')`);
+    sql(`
+      with c as (insert into public.contacts (organization_id, display_name, phone_number) values ('${ORG}', 'Caixa', '+5511${(telefone += 5)}') returning id)
+      insert into public.campaign_contacts (organization_id, campaign_id, contact_id) select '${ORG}', '${id}', id from c`);
+    sql(`select public.fn_campaign_create_version('${ORG}', '${id}', 'Entre: {{ Link_Grupo }}', '${GOV_ADMIN}')`);
+    expect(erro(`select public.fn_campaign_transition('${ORG}', '${id}', 'start')`)).toMatch(/campaign_no_destination/);
+  });
+
   it("não inicia sem contatos, mensagem, destino (se usa {{link_grupo}}) e canal — e diz qual falta, na ordem do assistente", () => {
     const id = q(`select public.fn_campaign_create('${ORG}', 'Vazia', '${GOV_ADMIN}')`);
     expect(erro(`select public.fn_campaign_transition('${ORG}', '${id}', 'start')`)).toMatch(/campaign_no_contacts/);

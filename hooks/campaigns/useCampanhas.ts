@@ -61,6 +61,8 @@ export interface VisaoGeral extends Omit<CampanhaDetalhada, "versions"> {
 export function useVisaoGeral(id: string) {
   return useQuery({
     queryKey: chaves.visao(id),
+    // O assistente ainda não tem campanha na primeira tela (só o nome): sem id, não pergunta nada ao servidor.
+    enabled: id !== "",
     queryFn: async () => (await chamar<VisaoGeral>(`/${id}/overview`)).data,
     refetchInterval: A_CADA,
     refetchIntervalInBackground: false,
@@ -106,12 +108,13 @@ export interface EventoComAutor extends EventoLinha {
   actor_name?: string | null;
 }
 
-export function useAtividade(id: string) {
+/** A aba Atividade. `incluirEnvios` traz também o que aconteceu com cada contato (envio, clique…); por padrão, só a campanha. */
+export function useAtividade(id: string, incluirEnvios = false) {
   return useInfiniteQuery({
-    queryKey: chaves.atividade(id),
+    queryKey: [...chaves.atividade(id), incluirEnvios ? "tudo" : "campanha"],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const r = await chamar<EventoComAutor[]>(`/${id}/events?limit=30${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ""}`);
+      const r = await chamar<EventoComAutor[]>(`/${id}/events?limit=30&scope=${incluirEnvios ? "all" : "campaign"}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ""}`);
       return { eventos: r.data, proximo: r.meta?.cursor ?? null };
     },
     getNextPageParam: (ultima) => ultima.proximo ?? undefined,
@@ -120,11 +123,14 @@ export function useAtividade(id: string) {
   });
 }
 
+/** Onde a importação está. Com o arquivo enviado e ainda não mapeado, traz também a prévia e o mapeamento sugerido. */
+export type EstadoDaImportacao = ResumoDaImportacao & { sample?: string[][]; suggested_mapping?: MapeamentoSugerido };
+
 export function useImportacao(id: string, importId: string | null) {
   return useQuery({
     queryKey: chaves.importacao(id, importId ?? "-"),
     enabled: importId !== null,
-    queryFn: async () => (await chamar<ResumoDaImportacao>(`/${id}/imports/${importId}`)).data,
+    queryFn: async () => (await chamar<EstadoDaImportacao>(`/${id}/imports/${importId}`)).data,
   });
 }
 
@@ -203,13 +209,28 @@ export function useResolverIncerto(id: string) {
 
 // ── importação: cada passo é uma chamada curta; o servidor guarda o estado ──
 
+export interface MapeamentoSugerido {
+  phone: number | null;
+  name: number | null;
+  email: number | null;
+  extras: Array<{ key: string; index: number; label: string }>;
+}
+
 export interface PrevaDoCsv {
   import_id: string;
   filename: string;
   total_rows: number;
   headers: string[];
   sample: string[][];
-  suggested_mapping: { phone: number; name: number | null; email: number | null; extras: Array<{ key: string; index: number }> };
+  suggested_mapping: MapeamentoSugerido;
+}
+
+/** O que o servidor recebe ao validar: índices das colunas escolhidas. */
+export interface MapeamentoEscolhido {
+  phone: number;
+  name: number | null;
+  email: number | null;
+  extras: Array<{ key: string; index: number }>;
 }
 
 export const enviarCsv = async (id: string, arquivo: File): Promise<PrevaDoCsv> => {
@@ -218,7 +239,7 @@ export const enviarCsv = async (id: string, arquivo: File): Promise<PrevaDoCsv> 
   return (await chamar<PrevaDoCsv>(`/${id}/imports`, { method: "POST", body: form })).data;
 };
 
-export const validarCsv = async (id: string, importId: string, mapeamento: PrevaDoCsv["suggested_mapping"]) =>
+export const validarCsv = async (id: string, importId: string, mapeamento: MapeamentoEscolhido) =>
   (await chamar<ResumoDaImportacao>(`/${id}/imports/${importId}/validate`, { method: "POST", json: mapeamento })).data;
 
 /** Um passo da importação; a tela repete até `remaining === 0` (é a barra de progresso). */

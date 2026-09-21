@@ -24,6 +24,7 @@ const h = vi.hoisted(() => ({
   resumoDaImportacao: vi.fn(),
   cancelarImportacao: vi.fn(),
   rejeitadosDaImportacao: vi.fn(),
+  amostraDaImportacao: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-role", () => ({ requireRole: h.guard }));
@@ -40,6 +41,7 @@ vi.mock("@/lib/campaigns/importacao-service", () => ({
   resumoDaImportacao: h.resumoDaImportacao,
   cancelarImportacao: h.cancelarImportacao,
   rejeitadosDaImportacao: h.rejeitadosDaImportacao,
+  amostraDaImportacao: h.amostraDaImportacao,
 }));
 
 import { POST as subir } from "@/app/api/v1/campaigns/[id]/imports/route";
@@ -145,6 +147,21 @@ describe("importação é DESTA campanha", () => {
     const ruim = { params: Promise.resolve({ id: CAMP, importId: "1; drop table x" }) };
     expect((await resumo(get(), ruim)).status).toBe(404);
     expect(h.resumoDaImportacao).not.toHaveBeenCalled();
+  });
+});
+
+describe("retomar depois de um F5", () => {
+  it("arquivo enviado e ainda não mapeado volta com a amostra e o mapeamento sugerido; depois de validado, só o resumo", async () => {
+    h.resumoDaImportacao.mockResolvedValue({ ...RESUMO, status: "uploaded", headers: ["Nome", "Telefone", "Cidade"] });
+    h.amostraDaImportacao.mockResolvedValue([["Ana", "11999990000", "SP"]]);
+    const a = (await (await resumo(get(), pi)).json()).data;
+    expect(a.sample).toEqual([["Ana", "11999990000", "SP"]]);
+    expect(a.suggested_mapping).toMatchObject({ phone: 1, name: 0 });
+    h.amostraDaImportacao.mockClear();
+    h.resumoDaImportacao.mockResolvedValue({ ...RESUMO, status: "validated" });
+    const b = (await (await resumo(get(), pi)).json()).data;
+    expect(b.sample).toBeUndefined();
+    expect(h.amostraDaImportacao).not.toHaveBeenCalled();
   });
 });
 

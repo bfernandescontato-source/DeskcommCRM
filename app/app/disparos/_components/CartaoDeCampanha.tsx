@@ -9,12 +9,13 @@ import type { CampanhaResumo } from "@/lib/campaigns/service";
 import type { PermissoesDaCentral } from "@/lib/campaigns/permissoes";
 import { Pause, Play } from "@/lib/ui/icons";
 
-import { avisarErro, Barra, Girando, SeloDaCampanha } from "./pecas";
+import { avisarErro, Barra, Girando, SeloDaCampanha, useTexto, pf } from "./pecas";
 
 function Mini({ rotulo, valor, tom }: { rotulo: string; valor: number; tom?: "erro" }) {
+  const { t } = useTexto();
   return (
     <div className="min-w-0">
-      <p className="text-[11px] text-text-muted">{rotulo}</p>
+      <p className="text-[11px] text-text-muted">{t(rotulo)}</p>
       <p className={tom === "erro" && valor > 0 ? "text-sm font-semibold tabular-nums text-error-fg" : "text-sm font-semibold tabular-nums"}>{numero(valor)}</p>
     </div>
   );
@@ -22,6 +23,7 @@ function Mini({ rotulo, valor, tom }: { rotulo: string; valor: number; tom?: "er
 
 /** A campanha em andamento (ou pausada) na abertura da Central: o placar e as quatro ações do dia a dia. */
 export function CartaoDeCampanha({ campanha: c, pode }: { campanha: CampanhaResumo; pode: PermissoesDaCentral }) {
+  const { t } = useTexto();
   const transicao = useTransicao(c.id);
   const pausada = c.status === "paused" || c.status === "error";
   const pendentes = c.counts.pending + c.counts.queued + c.counts.processing;
@@ -36,7 +38,7 @@ export function CartaoDeCampanha({ campanha: c, pode }: { campanha: CampanhaResu
             {c.name}
           </Link>
           <p className="mt-0.5 text-xs text-text-muted">
-            {numero(c.counts.sent)} de {numero(c.counts.total)} enviados · {percentual(c.counts.sent, c.counts.total)}
+            {pf(t("{n} de {total} enviados · {pct}"), { n: numero(c.counts.sent), total: numero(c.counts.total), pct: percentual(c.counts.sent, c.counts.total) })}
           </p>
         </div>
         <SeloDaCampanha status={c.status} />
@@ -61,21 +63,21 @@ export function CartaoDeCampanha({ campanha: c, pode }: { campanha: CampanhaResu
             onClick={() => transicao.mutate({ action: pausada ? "resume" : "pause" }, { onError: avisarErro })}
           >
             {transicao.isPending ? <Girando className="size-4" /> : pausada ? <Play weight="duotone" /> : <Pause weight="duotone" />}
-            {pausada ? "Retomar" : "Pausar"}
+            {pausada ? t("Retomar") : t("Pausar")}
           </Button>
         ) : null}
         {pode.editar ? (
           <>
             <Button asChild size="sm" variant="outline">
-              <Link href={`${base}?aba=mensagens&editar=1`}>Editar mensagem</Link>
+              <Link href={`${base}?aba=mensagens&editar=1`}>{t("Editar mensagem")}</Link>
             </Button>
             <Button asChild size="sm" variant="outline">
-              <Link href={`${base}?aba=destinos`}>Trocar grupo</Link>
+              <Link href={`${base}?aba=destinos`}>{t("Trocar grupo")}</Link>
             </Button>
           </>
         ) : null}
         <Button asChild size="sm" variant="ghost" className="ml-auto">
-          <Link href={base}>Ver campanha</Link>
+          <Link href={base}>{t("Ver campanha")}</Link>
         </Button>
       </footer>
     </article>

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { readFileSync } from "node:fs";
-import { acoesDaCampanha, destinoDoAlerta, dataHoraCurta, frasesDoEvento, funil, haQuantoTempo, horaCompleta, MOTIVO_DE_IGNORADO, MOTIVO_DE_REJEICAO, numero, percentual, ROTULO_DA_CAMPANHA, ROTULO_DO_ESTADO_DO_CONTATO, ROTULO_DO_ENVIO } from "@/lib/campaigns/formato";
+import { duracaoEmPalavras, estimativaDeEnvio, revisaoDaCampanha, usaLinkDoGrupo, estadoDoContato, filtroRapidoDoStatus, FILTROS_RAPIDOS, contextoDeNomes, MOTIVO_DO_VETO, rotuloDoCanal, acoesDaCampanha, destinoDoAlerta, dataHoraCurta, frasesDoEvento, funil, haQuantoTempo, horaCompleta, MOTIVO_DE_IGNORADO, MOTIVO_DE_REJEICAO, numero, percentual, ROTULO_DA_CAMPANHA, ROTULO_DO_ESTADO_DO_CONTATO, ROTULO_DO_ENVIO } from "@/lib/campaigns/formato";
+import { ROTULO_DO_MOTIVO } from "@/lib/campaigns/importacao";
 import { CAMPAIGN_CONTACT_STATUSES, CAMPAIGN_EVENT_KINDS, CAMPAIGN_IMPORT_REJECT_REASONS, CAMPAIGN_SKIP_REASONS, CAMPAIGN_STATUSES } from "@/lib/campaigns/vocabulario";
 
 describe("números", () => {
@@ -122,10 +123,11 @@ describe("frases dos eventos — o que um operador lê", () => {
 
 describe("datas", () => {
   it("data e hora curtas no fuso da organização", () => {
-    expect(dataHoraCurta("2026-09-21T15:04:32Z")).toBe("21/09 12:04");
-    expect(horaCompleta("2026-09-21T15:04:32Z")).toBe("12:04:32");
-    expect(dataHoraCurta(null)).toBe("—");
-    expect(dataHoraCurta("lixo")).toBe("—");
+    expect(dataHoraCurta("2026-09-21T15:04:32Z", "pt-BR")).toBe("21/09 12:04");
+    expect(dataHoraCurta("2026-09-21T15:04:32Z", "es")).toBe("21/09 12:04");
+    expect(horaCompleta("2026-09-21T15:04:32Z", "pt-BR")).toBe("12:04:32");
+    expect(dataHoraCurta(null, "pt-BR")).toBe("—");
+    expect(dataHoraCurta("lixo", "pt-BR")).toBe("—");
   });
   it("há quanto tempo", () => {
     const agora = new Date("2026-09-21T15:00:00Z");
@@ -134,6 +136,10 @@ describe("datas", () => {
     expect(haQuantoTempo("2026-09-21T12:00:00Z", agora)).toBe("há 3 h");
     expect(haQuantoTempo("2026-09-19T15:00:00Z", agora)).toBe("há 2 d");
     expect(haQuantoTempo(null, agora)).toBe("—");
+    // Com um tradutor, a frase inteira é a chave e o {n} é preenchido depois.
+    const es = (x: string) => ({ "há {n} min": "hace {n} min", agora: "ahora" })[x] ?? x;
+    expect(haQuantoTempo("2026-09-21T14:55:00Z", agora, es)).toBe("hace 5 min");
+    expect(haQuantoTempo("2026-09-21T14:59:50Z", agora, es)).toBe("ahora");
   });
 });
 
@@ -182,5 +188,97 @@ describe("alerta -> tela", () => {
     expect(destinoDoAlerta("c1", { action: "review_failures" })).toBe("/app/disparos/c1?aba=fila&status=failed");
     expect(destinoDoAlerta("c1", { action: "review_uncertain" })).toBe("/app/disparos/c1?aba=fila&status=uncertain");
     expect(destinoDoAlerta("c1", { action: "none" })).toBeNull();
+  });
+});
+
+describe("nomes para as frases", () => {
+  it("monta versão, grupo e número a partir da Visão geral, com nome de número que nunca fica em branco", () => {
+    const c = contextoDeNomes({
+      versions: [{ id: "v1", version_no: 1 }, { id: "v2", version_no: 2 }],
+      destinations: [{ id: "d1", name: "BLACK #01" }],
+      channels: [
+        { channel_session_id: "c1", session: { display_name: "Número 01", phone_number: "5511999990001" } },
+        { channel_session_id: "c2", session: { display_name: null, phone_number: "5511999990002" } },
+        { channel_session_id: "c3", session: null },
+      ],
+    });
+    expect(c.versoes).toEqual({ v1: 1, v2: 2 });
+    expect(c.destinos).toEqual({ d1: "BLACK #01" });
+    expect(c.canais).toEqual({ c1: "Número 01", c2: "5511999990002", c3: "Número sem nome" });
+    expect(rotuloDoCanal({ display_name: "  ", phone_number: null })).toBe("Número sem nome");
+  });
+  it("todo veto de ritmo tem explicação", () => {
+    expect(Object.keys(MOTIVO_DO_VETO).sort()).toEqual(["campaign_cap", "daily_cap", "interval", "outside_window", "warmup_cap"]);
+  });
+});
+
+describe("Fila: filtros rápidos e estado do contato", () => {
+  it("todo status que um filtro manda à API existe no vocabulário do banco", () => {
+    for (const f of FILTROS_RAPIDOS) for (const st of f.filtro.status ?? []) expect(CAMPAIGN_CONTACT_STATUSES, f.id).toContain(st);
+  });
+  it("os botões dos alertas (?status=failed|uncertain) acendem o filtro certo", () => {
+    expect(filtroRapidoDoStatus("failed")).toBe("falhas");
+    expect(filtroRapidoDoStatus("uncertain")).toBe("incertos");
+    expect(filtroRapidoDoStatus("sent")).toBe("enviados");
+    expect(filtroRapidoDoStatus("qualquer-coisa")).toBe("todos");
+    expect(filtroRapidoDoStatus(null)).toBe("todos");
+  });
+  it("o estado é o estágio mais avançado: entrou no grupo vence respondeu, que vence clicou", () => {
+    const base = { status: "sent" as const, clicked_at: null, replied_at: null, joined_at: null, left_at: null };
+    expect(estadoDoContato(base)).toBe("ENVIADO");
+    expect(estadoDoContato({ ...base, clicked_at: "x" })).toBe("CLICOU");
+    expect(estadoDoContato({ ...base, clicked_at: "x", replied_at: "x" })).toBe("RESPONDEU");
+    expect(estadoDoContato({ ...base, clicked_at: "x", replied_at: "x", joined_at: "x" })).toBe("NO_GRUPO");
+    expect(estadoDoContato({ ...base, joined_at: "x", left_at: "y" })).toBe("SAIU_DO_GRUPO");
+    expect(estadoDoContato({ ...base, status: "uncertain" as never })).toBe("INCERTO");
+  });
+});
+
+describe("motivos de rejeição do CSV: a tela e o arquivo baixado dizem a mesma coisa", () => {
+  it("os rótulos do cliente são idênticos aos do servidor", () => {
+    expect(MOTIVO_DE_REJEICAO).toEqual(ROTULO_DO_MOTIVO);
+  });
+});
+
+describe("assistente: o que falta para iniciar (espelho do banco)", () => {
+  const pronto = { pendentes: 45000, corpoAtivo: "Oi {{nome}}, entre: {{link_grupo}}", temDestinoAtivo: true, numerosEscolhidos: 2 };
+  it("tudo pronto: nada pendente", () => {
+    expect(revisaoDaCampanha(pronto).every((i) => i.ok)).toBe(true);
+  });
+  it("aponta o que falta, na ordem do assistente", () => {
+    const falta = revisaoDaCampanha({ pendentes: 0, corpoAtivo: null, temDestinoAtivo: false, numerosEscolhidos: 0 });
+    expect(falta.filter((i) => !i.ok).map((i) => i.id)).toEqual(["contatos", "mensagem", "envio"]);
+    // Sem mensagem o texto não usa link: o destino não é exigido (o banco também não exige).
+  });
+  it("destino só é exigido quando o texto usa {{link_grupo}} — em qualquer caixa, como o banco", () => {
+    expect(revisaoDaCampanha({ ...pronto, corpoAtivo: "Promoção hoje", temDestinoAtivo: false }).find((i) => i.id === "destino")!.ok).toBe(true);
+    expect(revisaoDaCampanha({ ...pronto, temDestinoAtivo: false }).find((i) => i.id === "destino")!.ok).toBe(false);
+    expect(usaLinkDoGrupo("Entre: {{ Link_Grupo }}")).toBe(true);
+    expect(usaLinkDoGrupo(null)).toBe(false);
+  });
+});
+
+describe("assistente: quanto tempo leva", () => {
+  it("45 mil com um número de 300/dia levam cerca de 150 dias; com mais números cai na proporção", () => {
+    expect(estimativaDeEnvio({ pendentes: 45000, limitesDiarios: [300], intervaloSegundos: 180, tetoDaCampanha: null })).toEqual({ porDia: 300, dias: 150 });
+    expect(estimativaDeEnvio({ pendentes: 45000, limitesDiarios: [300, 300, 300], intervaloSegundos: 180, tetoDaCampanha: null })).toEqual({ porDia: 900, dias: 50 });
+  });
+  it("o intervalo também limita: com 600s cabem 144 por dia, mesmo que o número aceite 300", () => {
+    expect(estimativaDeEnvio({ pendentes: 1440, limitesDiarios: [300], intervaloSegundos: 600, tetoDaCampanha: null })).toEqual({ porDia: 144, dias: 10 });
+  });
+  it("o teto da campanha só reduz, nunca aumenta o limite do número", () => {
+    expect(estimativaDeEnvio({ pendentes: 1000, limitesDiarios: [300], intervaloSegundos: 60, tetoDaCampanha: 100 }).porDia).toBe(100);
+    expect(estimativaDeEnvio({ pendentes: 1000, limitesDiarios: [300], intervaloSegundos: 60, tetoDaCampanha: 5000 }).porDia).toBe(300);
+  });
+  it("sem número não há estimativa (nunca 'Infinity dias')", () => {
+    expect(estimativaDeEnvio({ pendentes: 1000, limitesDiarios: [], intervaloSegundos: 180, tetoDaCampanha: null })).toEqual({ porDia: 0, dias: null });
+    expect(duracaoEmPalavras(null)).toBe("não dá para estimar");
+  });
+  it("fala em dias, semanas e meses", () => {
+    expect(duracaoEmPalavras(1)).toBe("menos de 1 dia");
+    expect(duracaoEmPalavras(5)).toBe("cerca de 5 dias");
+    expect(duracaoEmPalavras(21)).toBe("cerca de 3 semanas");
+    expect(duracaoEmPalavras(150)).toBe("cerca de 5 meses");
+    expect(duracaoEmPalavras(21, (x) => (x === "cerca de {n} semanas" ? "unas {n} semanas" : x))).toBe("unas 3 semanas");
   });
 });

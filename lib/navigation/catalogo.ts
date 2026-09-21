@@ -468,6 +468,16 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
+    // Atalho para o assistente de 5 passos. Sem `sidebar`: o menu já tem "Disparos"; este é o
+    // atalho do ⌘K ("nova campanha") e a porta que a cerca de completude exige para a rota.
+    href: "/app/disparos/nova",
+    label: "Nova campanha",
+    description: "Crie uma campanha de mensagem: importe os contatos, escreva o texto e escolha o grupo e os números.",
+    icon: "PaperPlaneTilt",
+    group: "canais",
+    minRole: "manager",
+  },
+  {
     href: "/app/webhooks",
     label: "Webhooks",
     description: "Avise outros sistemas quando algo acontecer aqui dentro.",

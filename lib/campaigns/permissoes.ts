@@ -77,3 +77,18 @@ export function permissoesDaCentral(papel: string | null | undefined): Permissoe
     resolverIncerto: pode("resolver_incerto"),
   };
 }
+
+/** A tela pode oferecer esta ação da máquina de estados a quem tem estas permissões? */
+export function podeFazer(p: PermissoesDaCentral, acao: AcaoDaApi): boolean {
+  switch (acao) {
+    case "start":
+      return p.iniciar;
+    case "complete":
+    case "cancel":
+      return p.encerrar;
+    case "ready":
+    case "pause":
+    case "resume":
+      return p.pausar;
+  }
+}

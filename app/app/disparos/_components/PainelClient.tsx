@@ -5,14 +5,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePainel } from "@/hooks/campaigns/useCampanhas";
-import { dataHoraCurta, numero } from "@/lib/campaigns/formato";
+import { numero } from "@/lib/campaigns/formato";
 import type { PermissoesDaCentral } from "@/lib/campaigns/permissoes";
 import { ArrowSquareOut, ChatCircle, ClockCountdown, Megaphone, PaperPlaneTilt, Plus, Users, WarningOctagon } from "@/lib/ui/icons";
 
 import { CartaoDeCampanha } from "./CartaoDeCampanha";
-import { CartaoDeMetrica, ErroNaTela, ListaDeAlertas, SeloDaCampanha, Vazio } from "./pecas";
+import { CartaoDeMetrica, ErroNaTela, ListaDeAlertas, SeloDaCampanha, Vazio, useTexto, useDatas, pf } from "./pecas";
 
 export function PainelClient({ pode }: { pode: PermissoesDaCentral }) {
+  const { dataHora } = useDatas();
+  const { t } = useTexto();
   const q = usePainel();
   const painel = q.data?.panel;
   const carregando = q.isLoading;
@@ -25,7 +27,7 @@ export function PainelClient({ pode }: { pode: PermissoesDaCentral }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-        <CartaoDeMetrica carregando={carregando} rotulo="Em andamento" valor={numero(painel?.running)} dica={painel && painel.paused > 0 ? `${numero(painel.paused)} pausada${painel.paused > 1 ? "s" : ""}` : undefined} icone={Megaphone} tom="sucesso" />
+        <CartaoDeMetrica carregando={carregando} rotulo="Em andamento" valor={numero(painel?.running)} dica={painel && painel.paused > 0 ? pf(t(painel.paused > 1 ? "{n} pausadas" : "{n} pausada"), { n: numero(painel.paused) }) : undefined} icone={Megaphone} tom="sucesso" />
         <CartaoDeMetrica carregando={carregando} rotulo="Enviados hoje" valor={numero(painel?.sent_today)} icone={PaperPlaneTilt} />
         <CartaoDeMetrica carregando={carregando} rotulo="Pendentes" valor={numero(ativo.pending ?? 0)} dica="nas campanhas ativas" icone={ClockCountdown} tom="info" />
         <CartaoDeMetrica carregando={carregando} rotulo="Cliques" valor={numero(ativo.clicked ?? 0)} dica="no link do grupo" icone={ArrowSquareOut} />
@@ -43,12 +45,12 @@ export function PainelClient({ pode }: { pode: PermissoesDaCentral }) {
       <section aria-labelledby="ativas" className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 id="ativas" className="text-sm font-semibold">
-            Campanhas ativas
+            {t("Campanhas ativas")}
           </h2>
           {pode.criar ? (
             <Button asChild size="sm">
               <Link href="/app/disparos/nova">
-                <Plus weight="bold" /> Nova campanha
+                <Plus weight="bold" /> {t("Nova campanha")}
               </Link>
             </Button>
           ) : null}
@@ -65,7 +67,7 @@ export function PainelClient({ pode }: { pode: PermissoesDaCentral }) {
             acao={
               pode.criar ? (
                 <Button asChild size="sm">
-                  <Link href="/app/disparos/nova">Criar campanha</Link>
+                  <Link href="/app/disparos/nova">{t("Criar campanha")}</Link>
                 </Button>
               ) : undefined
             }
@@ -82,17 +84,17 @@ export function PainelClient({ pode }: { pode: PermissoesDaCentral }) {
       {demais.length > 0 ? (
         <section aria-labelledby="demais" className="flex flex-col gap-3">
           <h2 id="demais" className="text-sm font-semibold">
-            Outras campanhas
+            {t("Outras campanhas")}
           </h2>
           <div className="overflow-hidden rounded-xl border border-border bg-surface">
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-surface-elevated text-left text-xs text-text-muted">
                 <tr>
-                  <th className="px-4 py-2 font-medium">Campanha</th>
-                  <th className="px-4 py-2 font-medium">Estado</th>
-                  <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">Contatos</th>
-                  <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">Enviados</th>
-                  <th className="hidden px-4 py-2 font-medium md:table-cell">Criada em</th>
+                  <th className="px-4 py-2 font-medium">{t("Campanha")}</th>
+                  <th className="px-4 py-2 font-medium">{t("Estado")}</th>
+                  <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">{t("Contatos")}</th>
+                  <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">{t("Enviados")}</th>
+                  <th className="hidden px-4 py-2 font-medium md:table-cell">{t("Criada em")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -108,7 +110,7 @@ export function PainelClient({ pode }: { pode: PermissoesDaCentral }) {
                     </td>
                     <td className="hidden px-4 py-2.5 text-right tabular-nums sm:table-cell">{numero(c.counts.total)}</td>
                     <td className="hidden px-4 py-2.5 text-right tabular-nums sm:table-cell">{numero(c.counts.sent)}</td>
-                    <td className="hidden px-4 py-2.5 text-text-muted md:table-cell">{dataHoraCurta(c.created_at)}</td>
+                    <td className="hidden px-4 py-2.5 text-text-muted md:table-cell">{dataHora(c.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

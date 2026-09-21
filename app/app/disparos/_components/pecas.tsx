@@ -5,6 +5,9 @@ import * as React from "react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
+import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
+import { useT } from "@/hooks/i18n/useT";
+
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -18,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Alerta } from "@/lib/campaigns/alertas";
-import { destinoDoAlerta, ROTULO_DA_CAMPANHA, ROTULO_DO_ALERTA, ROTULO_DO_ENVIO, ROTULO_DO_ESTADO_DO_CONTATO, type AcaoNaTela } from "@/lib/campaigns/formato";
+import { dataHoraCurta, destinoDoAlerta, haQuantoTempo, horaCompleta, ROTULO_DA_CAMPANHA, ROTULO_DO_ALERTA, ROTULO_DO_ENVIO, ROTULO_DO_ESTADO_DO_CONTATO, type AcaoNaTela } from "@/lib/campaigns/formato";
 import type { CampaignStatus } from "@/lib/campaigns/vocabulario";
 import { CircleNotch, Info, Warning, WarningOctagon } from "@/lib/ui/icons";
 import { cn } from "@/lib/utils";
@@ -26,18 +29,21 @@ import { cn } from "@/lib/utils";
 // ── selos de estado ─────────────────────────────────────────────────────────
 
 export function SeloDaCampanha({ status }: { status: CampaignStatus }) {
+  const { t } = useTexto();
   const r = ROTULO_DA_CAMPANHA[status];
-  return <Badge variant={r.variante}>{r.label}</Badge>;
+  return <Badge variant={r.variante}>{t(r.label)}</Badge>;
 }
 
 export function SeloDoContato({ estado }: { estado: string }) {
+  const { t } = useTexto();
   const r = ROTULO_DO_ESTADO_DO_CONTATO[estado] ?? { label: estado, variante: "neutral" as const };
-  return <Badge variant={r.variante}>{r.label}</Badge>;
+  return <Badge variant={r.variante}>{t(r.label)}</Badge>;
 }
 
 export function SeloDoEnvio({ status }: { status: string }) {
+  const { t } = useTexto();
   const r = ROTULO_DO_ENVIO[status] ?? { label: status, variante: "neutral" as const };
-  return <Badge variant={r.variante}>{r.label}</Badge>;
+  return <Badge variant={r.variante}>{t(r.label)}</Badge>;
 }
 
 // ── números ─────────────────────────────────────────────────────────────────
@@ -65,16 +71,17 @@ export function CartaoDeMetrica({
   tom?: keyof typeof TOM;
   carregando?: boolean;
 }) {
+  const { t } = useTexto();
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-surface p-4">
       <div className="min-w-0">
-        <p className="text-xs font-medium text-text-muted">{rotulo}</p>
+        <p className="text-xs font-medium text-text-muted">{t(rotulo)}</p>
         {carregando ? (
           <Skeleton className="mt-2 h-8 w-20" />
         ) : (
           <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{valor}</p>
         )}
-        {dica && !carregando ? <p className="mt-0.5 truncate text-xs text-text-muted">{dica}</p> : null}
+        {dica && !carregando ? <p className="mt-0.5 truncate text-xs text-text-muted">{t(dica)}</p> : null}
       </div>
       <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", TOM[tom])}>
         <Icone weight="duotone" className="size-5" aria-hidden />
@@ -100,12 +107,13 @@ export function Barra({ valor, total, className }: { valor: number; total: numbe
 }
 
 export function Secao({ titulo, descricao, acao, children, id }: { titulo: string; descricao?: string; acao?: React.ReactNode; children: React.ReactNode; id?: string }) {
+  const { t } = useTexto();
   return (
     <section id={id} className="rounded-xl border border-border bg-surface">
       <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{titulo}</h2>
-          {descricao ? <p className="mt-0.5 text-xs text-text-muted">{descricao}</p> : null}
+          <h2 className="text-sm font-semibold">{t(titulo)}</h2>
+          {descricao ? <p className="mt-0.5 text-xs text-text-muted">{t(descricao)}</p> : null}
         </div>
         {acao}
       </header>
@@ -115,22 +123,24 @@ export function Secao({ titulo, descricao, acao, children, id }: { titulo: strin
 }
 
 export function Vazio({ titulo, texto, acao }: { titulo: string; texto?: string; acao?: React.ReactNode }) {
+  const { t } = useTexto();
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-10 text-center">
-      <p className="text-sm font-medium">{titulo}</p>
-      {texto ? <p className="max-w-md text-xs text-text-muted">{texto}</p> : null}
+      <p className="text-sm font-medium">{t(titulo)}</p>
+      {texto ? <p className="max-w-md text-xs text-text-muted">{t(texto)}</p> : null}
       {acao}
     </div>
   );
 }
 
 export function ErroNaTela({ mensagem, onTentar }: { mensagem: string; onTentar?: () => void }) {
+  const { t } = useTexto();
   return (
     <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-border bg-error-bg px-4 py-3 text-sm text-error-fg">
-      <span>{mensagem}</span>
+      <span>{t(mensagem)}</span>
       {onTentar ? (
         <Button size="sm" variant="outline" onClick={onTentar}>
-          Tentar de novo
+          {t("Tentar de novo")}
         </Button>
       ) : null}
     </div>
@@ -150,9 +160,10 @@ const ESTILO_DO_ALERTA: Record<Alerta["level"], { caixa: string; icone: Phosphor
 };
 
 export function ListaDeAlertas({ campaignId, campanha, alertas }: { campaignId: string; campanha?: string; alertas: Alerta[] }) {
+  const { t } = useTexto();
   if (alertas.length === 0) return null;
   return (
-    <ul className="space-y-2" aria-label="Alertas">
+    <ul className="space-y-2" aria-label={t("Alertas")}>
       {alertas.map((a) => {
         const est = ESTILO_DO_ALERTA[a.level];
         const Icone = est.icone;
@@ -162,11 +173,11 @@ export function ListaDeAlertas({ campaignId, campanha, alertas }: { campaignId: 
             <Icone weight="duotone" className="size-5 shrink-0" aria-hidden />
             <p className="min-w-0 flex-1">
               {campanha ? <span className="font-semibold">{campanha}: </span> : null}
-              {a.message}
+              {t(a.message)}
             </p>
             {href && ROTULO_DO_ALERTA[a.action] ? (
               <Button asChild size="sm" variant="outline" className="shrink-0 bg-surface text-text">
-                <Link href={href}>{ROTULO_DO_ALERTA[a.action]}</Link>
+                <Link href={href}>{t(ROTULO_DO_ALERTA[a.action])}</Link>
               </Button>
             ) : null}
           </li>
@@ -197,20 +208,21 @@ export function ConfirmarAcao({
   ocupado?: boolean;
   aoConfirmar: () => void;
 }) {
+  const { t } = useTexto();
   return (
     <AlertDialog open={aberto} onOpenChange={(v) => (!v && !ocupado ? aoFechar() : undefined)}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{titulo}</AlertDialogTitle>
+          <AlertDialogTitle>{t(titulo)}</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="text-sm text-text-muted">{texto}</div>
+            <div className="text-sm text-text-muted">{typeof texto === "string" ? t(texto) : texto}</div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={ocupado}>Voltar</AlertDialogCancel>
+          <AlertDialogCancel disabled={ocupado}>{t("Voltar")}</AlertDialogCancel>
           <Button variant={perigo ? "destructive" : "primary"} onClick={aoConfirmar} disabled={ocupado}>
             {ocupado ? <Girando className="size-4" /> : null}
-            {rotuloDoBotao}
+            {t(rotuloDoBotao)}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -230,6 +242,7 @@ export function BotaoDeAcao({
   aoExecutar: (a: AcaoNaTela) => void;
   compacto?: boolean;
 }) {
+  const { t } = useTexto();
   const [pedindo, setPedindo] = React.useState(false);
   const variante = acao.tom === "primario" ? "primary" : acao.tom === "perigo" ? "outline" : "outline";
   return (
@@ -242,14 +255,14 @@ export function BotaoDeAcao({
         onClick={() => (acao.confirmar ? setPedindo(true) : aoExecutar(acao))}
       >
         {ocupado && !acao.confirmar ? <Girando className="size-4" /> : null}
-        {acao.rotulo}
+        {t(acao.rotulo)}
       </Button>
       {acao.confirmar ? (
         <ConfirmarAcao
           aberto={pedindo}
           aoFechar={() => setPedindo(false)}
-          titulo={`${acao.rotulo}?`}
-          texto={acao.aviso}
+          titulo={`${t(acao.rotulo)}?`}
+          texto={acao.aviso ?? ""}
           rotuloDoBotao={acao.rotulo}
           perigo={acao.tom === "perigo"}
           ocupado={ocupado}
@@ -270,4 +283,55 @@ export function avisarErro(e: unknown) {
 
 export function avisarOk(mensagem: string) {
   toast.success(mensagem);
+}
+
+const CLASSE_DO_CAMPO =
+  "h-9 rounded-sm border border-border bg-bg px-3 text-sm text-text hover:border-border-strong focus-visible:outline-hidden focus-visible:border-accent-500 focus-visible:ring-2 focus-visible:ring-accent-soft";
+
+/** `<select>` nativo com o visual dos campos: para filtros curtos, onde o seletor completo só atrapalharia. */
+export function Selecao({ valor, aoMudar, opcoes, rotulo, className }: { valor: string; aoMudar: (v: string) => void; opcoes: Array<{ valor: string; rotulo: string }>; rotulo: string; className?: string }) {
+  const { t } = useTexto();
+  return (
+    <select aria-label={t(rotulo)} className={cn(CLASSE_DO_CAMPO, className)} value={valor} onChange={(e) => aoMudar(e.target.value)}>
+      {opcoes.map((o) => (
+        <option key={o.valor} value={o.valor}>
+          {t(o.rotulo)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** Espera o usuário parar de digitar antes de mudar o valor (a Fila consulta o servidor a cada mudança). */
+export function useAtrasado<T>(valor: T, ms = 350): T {
+  const [v, setV] = React.useState(valor);
+  React.useEffect(() => {
+    const id = setTimeout(() => setV(valor), ms);
+    return () => clearTimeout(id);
+  }, [valor, ms]);
+  return v;
+}
+
+/** Preenche os `{marcadores}` de uma frase JÁ traduzida: `pf(t("{n} de {total} enviados"), { n, total })`. */
+export function pf(frase: string, valores: Record<string, string | number>): string {
+  return Object.entries(valores).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), frase);
+}
+
+/** O tradutor da tela. A frase inteira é a chave (o espanhol pode mudar a ordem das palavras); `pf` preenche os marcadores. */
+export function useTexto() {
+  return { t: useT() };
+}
+
+/** Data, hora e "há quanto tempo" no idioma de quem lê (a data segue o idioma da interface, não o português fixo). */
+export function useDatas() {
+  const tag = useTagDeIdioma();
+  const t = useT();
+  return React.useMemo(
+    () => ({
+      dataHora: (iso: string | null | undefined) => dataHoraCurta(iso, tag),
+      hora: (iso: string | null | undefined) => horaCompleta(iso, tag),
+      quanto: (iso: string | null | undefined) => haQuantoTempo(iso, new Date(), t),
+    }),
+    [tag, t],
+  );
 }

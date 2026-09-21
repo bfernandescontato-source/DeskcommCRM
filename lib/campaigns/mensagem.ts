@@ -88,3 +88,30 @@ export function renderizarMensagem(corpo: string, ctx: ContextoDaMensagem): Mens
 
 /** Um exemplo para a pré-visualização do assistente: o que o contato de exemplo veria. */
 export const CONTATO_DE_EXEMPLO: Required<Pick<ContextoDaMensagem, "nome">> = { nome: "Maria Silva" };
+
+export interface PreviaDaMensagem {
+  texto: string;
+  /** Colunas do CSV que o texto usa (`{{cidade}}`): a prévia as mostra como ‹cidade›, sem inventar valor. */
+  doCsv: string[];
+  /** Chave aberta e não fechada: o texto iria com `{{` literal para as pessoas. */
+  chavesSoltas: boolean;
+  /** O texto usa `{{link_grupo}}` mas ainda não há grupo de destino para preencher. */
+  faltaDestino: boolean;
+}
+
+/**
+ * O que a pessoa veria, para a tela do assistente e a edição da mensagem. Nome de exemplo fixo;
+ * o link é o do destino real quando já existe (`linkGrupo`), senão um marcador visível — a prévia
+ * nunca finge ter um link que o envio não teria.
+ */
+export function previaDaMensagem(corpo: string, opcoes: { linkGrupo?: string | null; nome?: string } = {}): PreviaDaMensagem {
+  const usadas = variaveisDaMensagem(corpo);
+  const doCsv = usadas.filter((k) => !(VARIAVEIS_DO_SISTEMA as readonly string[]).includes(k));
+  const link = (opcoes.linkGrupo ?? "").trim();
+  const r = renderizarMensagem(corpo, {
+    nome: opcoes.nome ?? CONTATO_DE_EXEMPLO.nome,
+    linkGrupo: link !== "" ? link : "‹link do grupo›",
+    variaveis: Object.fromEntries(doCsv.map((k) => [k, `‹${k}›`])),
+  });
+  return { texto: r.texto, doCsv, chavesSoltas: chavesSoltas(corpo), faltaDestino: usadas.includes("link_grupo") && link === "" };
+}

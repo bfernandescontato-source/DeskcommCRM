@@ -9,7 +9,8 @@ import type { NextRequest } from "next/server";
 
 import { fail, ok } from "@/lib/api/wrappers";
 import { requireSupportWrite } from "@/lib/impersonate/support";
-import { cancelarImportacao, resumoDaImportacao } from "@/lib/campaigns/importacao-service";
+import { sugerirMapeamento } from "@/lib/campaigns/importacao";
+import { amostraDaImportacao, cancelarImportacao, resumoDaImportacao } from "@/lib/campaigns/importacao-service";
 import { idInvalido, rotaDeCampanha } from "@/lib/campaigns/rota";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,11 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<R
     const resumo = await resumoDaImportacao(c.db, c.org.orgId, importId);
     // A importação tem de ser DESTA campanha: o id da URL não é confiado.
     if (resumo.campaign_id !== id) return fail("not_found", c.t("Não encontrado."), 404, { requestId: c.requestId });
+    // Arquivo enviado e ainda não mapeado: a tela precisa da prévia e da sugestão para retomar depois de um F5.
+    if (resumo.status === "uploaded") {
+      const sample = await amostraDaImportacao(c.db, c.org.orgId, importId);
+      return ok({ ...resumo, sample, suggested_mapping: sugerirMapeamento(resumo.headers) }, { requestId: c.requestId });
+    }
     return ok(resumo, { requestId: c.requestId });
   });
 }

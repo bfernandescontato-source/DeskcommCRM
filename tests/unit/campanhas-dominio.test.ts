@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { roleAtLeast } from "@/lib/auth/types";
+
 import { erroDaCampanha } from "@/lib/campaigns/erros";
 import {
   chaveDeVariavel,
@@ -129,6 +131,9 @@ describe("schemas — entrada da API", () => {
     expect(eventosQuerySchema.parse({}).limit).toBe(30);
     expect(eventosQuerySchema.safeParse({ limit: "500" }).success).toBe(false);
     expect(eventosQuerySchema.safeParse({ contact: "não-é-uuid" }).success).toBe(false);
+    expect(eventosQuerySchema.parse({}).scope).toBe("all");
+    expect(eventosQuerySchema.parse({ scope: "campaign" }).scope).toBe("campaign");
+    expect(eventosQuerySchema.safeParse({ scope: "tudo" }).success).toBe(false);
   });
 });
 
@@ -202,7 +207,7 @@ describe("cursor da linha do tempo", () => {
   });
 });
 
-import { permissoesDaCentral } from "@/lib/campaigns/permissoes";
+import { permissoesDaCentral, podeFazer } from "@/lib/campaigns/permissoes";
 
 describe("o que a tela oferece por papel", () => {
   it("viewer e agent não veem a Central; manager opera; só admin inicia e encerra", () => {
@@ -212,5 +217,38 @@ describe("o que a tela oferece por papel", () => {
     expect(permissoesDaCentral("admin")).toEqual({ ver: true, criar: true, editar: true, pausar: true, iniciar: true, encerrar: true, resolverIncerto: true });
     expect(permissoesDaCentral(null).criar).toBe(false);
     expect(permissoesDaCentral("papel-inventado").criar).toBe(false);
+  });
+});
+
+import { previaDaMensagem } from "@/lib/campaigns/mensagem";
+
+describe("prévia da mensagem", () => {
+  it("usa o link real, um nome de exemplo e marca as colunas do CSV sem inventar valor", () => {
+    const p = previaDaMensagem("Oi {{primeiro_nome}}, veja {{produto}} no grupo: {{link_grupo}}", { linkGrupo: "https://app.exemplo.com/g/abcdef0123456789abcd" });
+    expect(p.texto).toBe("Oi Maria, veja ‹produto› no grupo: https://app.exemplo.com/g/abcdef0123456789abcd");
+    expect(p.doCsv).toEqual(["produto"]);
+    expect(p.faltaDestino).toBe(false);
+    expect(p.chavesSoltas).toBe(false);
+  });
+  it("sem destino a prévia mostra um marcador e avisa; chave aberta é sinalizada", () => {
+    const p = previaDaMensagem("Entre: {{link_grupo}} {{nome");
+    expect(p.texto).toContain("‹link do grupo›");
+    expect(p.faltaDestino).toBe(true);
+    expect(p.chavesSoltas).toBe(true);
+  });
+  it("texto sem variável não pede destino", () => {
+    expect(previaDaMensagem("Promoção hoje!").faltaDestino).toBe(false);
+  });
+});
+
+describe("cada botão da tela bate com o papel que a rota exige", () => {
+  it("podeFazer concorda com PAPEL_MINIMO para toda ação da API, em todo papel", () => {
+    for (const papel of ["viewer", "agent", "manager", "admin"] as const) {
+      const p = permissoesDaCentral(papel);
+      for (const a of ACOES_DA_API) {
+        const rotaAceita = roleAtLeast(papel, PAPEL_MINIMO[a]);
+        expect(podeFazer(p, a), `${papel} / ${a}`).toBe(rotaAceita);
+      }
+    }
   });
 });

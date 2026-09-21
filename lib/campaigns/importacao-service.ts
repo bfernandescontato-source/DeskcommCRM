@@ -148,6 +148,21 @@ export async function importarEmLotes(
   }
 }
 
+/** As primeiras linhas do arquivo, como estão na staging: a prévia que o operador vê antes de mapear as colunas. */
+export async function amostraDaImportacao(db: Db, orgId: string, importId: string, quantas = 5): Promise<string[][]> {
+  const linhas =
+    (await ler<Array<{ cells: string[] | null }>>(
+      db
+        .from("campaign_import_rows")
+        .select("cells")
+        .eq("organization_id", orgId)
+        .eq("import_id", importId)
+        .order("line_no", { ascending: true })
+        .limit(quantas),
+    )) ?? [];
+  return linhas.map((l) => l.cells ?? []);
+}
+
 export async function cancelarImportacao(db: Db, orgId: string, importId: string) {
   return rpc<{ changed: boolean; status: string; discarded_rows?: number }>(db, "fn_campaign_import_cancel", {
     p_org: orgId,
