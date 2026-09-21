@@ -120,8 +120,11 @@ describe("POST /campaigns", () => {
     expect(h.criarCampanha).not.toHaveBeenCalled();
   });
 
-  it("GET lista para quem só lê", async () => {
+  it("GET lista para a gerência; viewer não lê (a Fila traz telefones)", async () => {
     h.role = "viewer";
+    expect((await listar()).status).toBe(403);
+    expect(h.listarCampanhas).not.toHaveBeenCalled();
+    h.role = "manager";
     h.listarCampanhas.mockResolvedValue([]);
     const res = await listar();
     expect(res.status).toBe(200);

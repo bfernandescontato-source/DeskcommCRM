@@ -62,7 +62,7 @@ const post = (corpo: unknown) => new NextRequest("http://localhost/x", { method:
 
 beforeEach(() => {
   vi.clearAllMocks();
-  h.role = "viewer";
+  h.role = "manager";
   h.apoio.mockResolvedValue(null);
   h.guard.mockImplementation(async (min: keyof typeof RANK) =>
     RANK[h.role] < RANK[min]
@@ -142,7 +142,17 @@ describe("perfil do contato e decisão do incerto", () => {
     expect(h.perfilDoContato).toHaveBeenCalledWith(expect.anything(), ORG, CAMP, CC);
   });
 
+  it("viewer e agent não leem a Central: o painel, a Fila e o perfil respondem 403", async () => {
+    for (const papel of ["viewer", "agent"] as const) {
+      h.role = papel as "viewer";
+      // agent tem rank entre viewer e manager; o mock só conhece o que a suíte usa.
+      (RANK as Record<string, number>).agent ??= 2;
+      expect((await perfil(get(), pc)).status, papel).toBe(403);
+    }
+  });
+
   it("viewer não decide envio incerto; manager decide, e o servidor recebe QUEM decidiu", async () => {
+    h.role = "viewer";
     expect((await resolver(post({ resolution: "sent" }), pc)).status).toBe(403);
     expect(h.resolverIncerto).not.toHaveBeenCalled();
     h.role = "manager";

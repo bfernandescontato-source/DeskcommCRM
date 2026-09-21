@@ -141,7 +141,7 @@ describe("permissões", () => {
     expect(papelMinimo("resume")).toBe("manager");
     expect(papelMinimo("editar_mensagem")).toBe("manager");
     expect(papelMinimo("trocar_destino")).toBe("manager");
-    expect(papelMinimo("ler")).toBe("viewer");
+    expect(papelMinimo("ler")).toBe("manager");
   });
 
   it("toda ação da API tem papel definido", () => {
@@ -199,5 +199,18 @@ describe("cursor da linha do tempo", () => {
     expect(decodificarCursorDeEventos(enc({ ...ok, id: "x),id.gt.0" }))).toBeNull();
     expect(decodificarCursorDeEventos(enc({ ...ok, t: "2026-09-21T16:13:03Z),or(id.gt.0" }))).toBeNull();
     expect(decodificarCursorDeEventos(enc({ ...ok, t: "ontem" }))).toBeNull();
+  });
+});
+
+import { permissoesDaCentral } from "@/lib/campaigns/permissoes";
+
+describe("o que a tela oferece por papel", () => {
+  it("viewer e agent não veem a Central; manager opera; só admin inicia e encerra", () => {
+    expect(permissoesDaCentral("viewer")).toEqual({ ver: false, criar: false, editar: false, pausar: false, iniciar: false, encerrar: false, resolverIncerto: false });
+    expect(permissoesDaCentral("agent").criar).toBe(false);
+    expect(permissoesDaCentral("manager")).toEqual({ ver: true, criar: true, editar: true, pausar: true, iniciar: false, encerrar: false, resolverIncerto: true });
+    expect(permissoesDaCentral("admin")).toEqual({ ver: true, criar: true, editar: true, pausar: true, iniciar: true, encerrar: true, resolverIncerto: true });
+    expect(permissoesDaCentral(null).criar).toBe(false);
+    expect(permissoesDaCentral("papel-inventado").criar).toBe(false);
   });
 });

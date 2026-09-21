@@ -8,6 +8,7 @@
 import type { NextRequest } from "next/server";
 
 import { fail, ok } from "@/lib/api/wrappers";
+import { nomesDeQuemAgiu } from "@/lib/campaigns/leituras";
 import { idInvalido, rotaDeCampanha } from "@/lib/campaigns/rota";
 import { eventosQuerySchema } from "@/lib/campaigns/schemas";
 import { listarEventos } from "@/lib/campaigns/service";
@@ -35,6 +36,8 @@ export async function GET(req: NextRequest, { params }: RouteParams): Promise<Re
       limit: query.data.limit,
       contactCampaignId: query.data.contact,
     });
-    return ok(eventos, { requestId: c.requestId, meta: { cursor: nextCursor, has_more: nextCursor !== null } });
+    const nomes = await nomesDeQuemAgiu(c.db, c.org.orgId, eventos.map((e) => e.actor_user_id));
+    const comAutor = eventos.map((e) => ({ ...e, actor_name: e.actor_user_id ? (nomes.get(e.actor_user_id) ?? null) : null }));
+    return ok(comAutor, { requestId: c.requestId, meta: { cursor: nextCursor, has_more: nextCursor !== null } });
   });
 }

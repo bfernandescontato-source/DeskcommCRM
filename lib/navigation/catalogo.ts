@@ -451,6 +451,23 @@ export const NAV_CATALOG = [
     // navegável. Para voltar a mostrá-la, basta devolver `sidebar: true`.
   },
   {
+    // Campanhas de mensagem em massa pelos números já conectados, com fila, pausa e
+    // retomada do ponto exato, link rastreado e funil até a entrada no grupo.
+    //
+    // Fica em "Canais" porque é SAÍDA de mensagem por número — o oposto do Inbox, onde
+    // se responde. `minRole: "manager"` porque a página redireciona abaixo disso (regra 1
+    // acima) e a API recusa: a Fila lista o telefone de dezenas de milhares de pessoas.
+    // Quem inicia ou encerra é cobrado pela rota (admin); a tela esconde o botão que a
+    // rota recusaria.
+    href: "/app/disparos",
+    label: "Disparos",
+    description: "Campanhas de mensagem pelos seus números: fila, pausa, link rastreado e entrada nos grupos.",
+    icon: "PaperPlaneTilt",
+    group: "canais",
+    minRole: "manager",
+    sidebar: true,
+  },
+  {
     href: "/app/webhooks",
     label: "Webhooks",
     description: "Avise outros sistemas quando algo acontecer aqui dentro.",
