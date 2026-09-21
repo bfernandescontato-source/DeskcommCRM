@@ -75,6 +75,7 @@ interface Excecao {
  * linhas da OUTRA organização, não uma leitura como superusuário.
  */
 const PROVA_PROPRIA: readonly Excecao[] = [
+  { tabela: "campaign_clicks", razao: "tests/invariants/central-de-disparos-rastreio.test.ts — dois tenants reais por JWT (countAs): o dono lê os cliques da própria campanha e a outra organização lê zero; o navegador só tem SELECT (INSERT/UPDATE/DELETE recusados a authenticated e anon); trilha append-only até para o service_role; escrita só pelas funções fn_campaign_* do service_role" },
   { tabela: "campaign_imports", razao: "tests/invariants/central-de-disparos-importacao.test.ts — tabela SERVIDOR-ONLY (linhas cruas de planilha): RLS ligada e nenhum privilégio (select/insert/update/delete) para authenticated nem anon; as funções fn_campaign_import_* conferem a organização e respondem not_found para a outra" },
   { tabela: "campaign_import_rows", razao: "tests/invariants/central-de-disparos-importacao.test.ts — tabela SERVIDOR-ONLY (linhas cruas de planilha): RLS ligada e nenhum privilégio (select/insert/update/delete) para authenticated nem anon; as funções fn_campaign_import_* conferem a organização e respondem not_found para a outra" },
   { tabela: "campaigns", razao: "tests/invariants/central-de-disparos-nucleo.test.ts — dois tenants reais por JWT: leitura positiva do dono e negativa cruzada da outra organização; o navegador só tem SELECT (INSERT/UPDATE/DELETE/TRUNCATE recusados a authenticated e anon); escrita só pelas funções fn_campaign_* do service_role" },

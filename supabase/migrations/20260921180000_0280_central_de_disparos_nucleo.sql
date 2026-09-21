@@ -36,8 +36,10 @@
 --
 -- ─── O QUE FICA DE FORA DAQUI (e onde entra) ───────────────────────────────────
 --   importação de CSV (campaign_imports)          -> 0281
---   rastreio de clique (campaign_clicks)          -> 0282
---   entrada/saída de grupo (group_membership_*)   -> 0283
+--   despacho (ritmo, reserva exclusiva, incertos)  -> 0282
+--   conversa da campanha e "respondeu"             -> 0283
+--   rastreio de clique (campaign_clicks)           -> 0284
+--   entrada/saída de grupo (group_membership_*)    -> 0285
 -- Tabela sem consumidor é o anti-pattern nº 3 do CLAUDE.md: cada uma nasce com o
 -- código que a lê.
 --

@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { dayStartInTz } from "@/lib/agent-engine/pacing/engine";
 import { audit } from "@/lib/audit";
+import { env } from "@/lib/env";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { logger } from "@/lib/logger";
 
@@ -13,7 +14,20 @@ import type { DepsDoDespachante } from "./despachante";
 import { enviarTextoPelaCentral } from "./envio";
 import { carregarRitmoDoCanal, enviadosHojePelaCampanha, registrarEnvioNoLedger } from "./ritmo";
 
-export function depsDeProducao(admin: SupabaseClient, opcoes: { baseDoRastreio?: string | null } = {}): DepsDoDespachante {
+/**
+ * A base pública do redirecionador (`<base>/g/<token>`): a URL da própria aplicação. Só vale
+ * https — uma instalação com `NEXT_PUBLIC_APP_URL` ainda em localhost mandaria link quebrado
+ * a milhares de pessoas, e o link cru do convite é o comportamento seguro.
+ */
+export function baseDoRastreioDaInstalacao(url: string | undefined | null): string | null {
+  const u = (url ?? "").trim();
+  return /^https:\/\/[^\s/]+/i.test(u) ? u.replace(/\/+$/, "") : null;
+}
+
+export function depsDeProducao(
+  admin: SupabaseClient,
+  opcoes: { baseDoRastreio?: string | null } = { baseDoRastreio: baseDoRastreioDaInstalacao(env.NEXT_PUBLIC_APP_URL) },
+): DepsDoDespachante {
   return {
     async chamar<T>(fn: string, args: Record<string, unknown>): Promise<T> {
       const { data, error } = await admin.rpc(fn, args);

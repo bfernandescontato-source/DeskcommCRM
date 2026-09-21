@@ -91,6 +91,12 @@ export const PUBLIC_PATHS: RegExp[] = [
   // dois nomes de propósito: `/^\/legal/` deixaria qualquer sub-path futuro
   // nascer público de carona.
   /^\/legal\/(terms|privacy)$/,
+  // O REDIRECIONADOR DE CLIQUES da Central de Disparos: quem clica no link da mensagem é uma
+  // pessoa de fora, sem sessão nenhuma. O token é exatamente 20 hex minúsculos (80 bits, um por
+  // contato que recebeu a mensagem) e só resolve para um convite de WhatsApp cadastrado por quem
+  // opera a campanha. Âncorado no formato de propósito: `/^\/g\//` deixaria qualquer sub-path
+  // futuro nascer público de carona.
+  /^\/g\/[0-9a-f]{20}$/,
 ];
 
 export function isPublicPath(pathname: string): boolean {

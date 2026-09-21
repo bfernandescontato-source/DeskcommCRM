@@ -114,3 +114,7 @@ export const CAMPAIGN_IMPORT_REJECT_REASONS = [
   "bad_row",
 ] as const;
 export type CampaignImportRejectReason = (typeof CAMPAIGN_IMPORT_REJECT_REASONS)[number];
+
+/** Quem fez o clique (`campaign_clicks.agent_class`). Só `browser` conta como pessoa. */
+export const CAMPAIGN_CLICK_AGENT_CLASSES = ["browser", "preview", "bot"] as const;
+export type CampaignClickAgentClass = (typeof CAMPAIGN_CLICK_AGENT_CLASSES)[number];
