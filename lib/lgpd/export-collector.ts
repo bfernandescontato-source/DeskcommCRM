@@ -145,6 +145,26 @@ export interface TaskRow {
 }
 
 /**
+ * Participação em campanhas da Central de Disparos (migration 0280).
+ *
+ * `variables` são as colunas extras que vieram da planilha do operador — dado
+ * do titular que a anonimização ZERA (`trg_redigir_disparos_ao_anonimizar`). O
+ * que se apaga a pedido dele é o que se entrega a pedido dele.
+ */
+export interface CampaignContactRow {
+  id: string;
+  campaign_id: string;
+  status: string;
+  variables: Record<string, unknown>;
+  sent_at: string | null;
+  clicked_at: string | null;
+  replied_at: string | null;
+  joined_at: string | null;
+  left_at: string | null;
+  created_at: string;
+}
+
+/**
  * Captação por webhook — de onde a pessoa veio.
  *
  * ⚠️ ESTA NÃO É DA ENTREGA DO CALENDÁRIO. Ela apareceu porque o gate novo
@@ -237,6 +257,8 @@ export interface ExportPayload {
   activities: ActivityRow[];
   appointments: AppointmentRow[];
   tasks: TaskRow[];
+  /** Opcional: exportações geradas antes da Central de Disparos (0280) não o trazem. */
+  campaign_contacts?: CampaignContactRow[];
   webhook_captures: CaptureRow[];
   audit_log_extract: AuditRow[];
   meeting_deliveries: MeetingDeliveryRow[];
@@ -609,6 +631,28 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     }
   }
 
+  // Campanhas de WhatsApp (Central de Disparos, migration 0280) — `contact_id` direto
+  // em `campaign_contacts`. As colunas extras da planilha do operador são dado do
+  // titular e a anonimização as zera; o pedido de acesso as entrega.
+  let campaign_contacts: CampaignContactRow[] = [];
+  if (contactId) {
+    const { data, error } = await admin
+      .from("campaign_contacts")
+      .select("id, campaign_id, status, variables, sent_at, clicked_at, replied_at, joined_at, left_at, created_at")
+      .eq("organization_id", organizationId)
+      .eq("contact_id", contactId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) {
+      logger.warn("[lgpd-export-worker] campaign contacts load failed", {
+        request_id: requestId,
+        error: error.message,
+      });
+    } else if (data) {
+      campaign_contacts = data as unknown as CampaignContactRow[];
+    }
+  }
+
   // Chamadas de voz — `contact_id` direto em `voice_calls` (migration 0232).
   //
   // O que existe aqui é o REGISTRO da ligação, nunca o áudio: gravação está
@@ -804,6 +848,7 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     activities,
     appointments,
     tasks,
+    campaign_contacts,
     webhook_captures,
     audit_log_extract,
     reply_drafts,
@@ -836,6 +881,7 @@ function emptyPayload(
     activities: [],
     appointments: [],
     tasks: [],
+    campaign_contacts: [],
     webhook_captures: [],
     audit_log_extract: [],
     meeting_deliveries: [],

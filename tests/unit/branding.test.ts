@@ -810,6 +810,17 @@ const HOSTS_DECLARADOS: Record<string, EntradaDeHost> = {
     motivo:
       "sufixo do JID do WhatsApp. Aparece em `lib/waha/resolve-contact-whatsapp-id.ts` desde antes desta régua existir, num `endsWith` que distingue `@lid`, `@c.us` e `@s.whatsapp.net` — é o protocolo do WhatsApp falando, não endereço que o produto chama nem palavra de interface. Trocar pela marca do revendedor faz o CRM deixar de reconhecer o identificador que o próprio WhatsApp manda.",
   },
+  // ── host aceito na ENTRADA de um formulário (validação), não destino de chamada ──
+  "chat.whatsapp.com": {
+    categoria: "PLATAFORMA",
+    motivo:
+      "único host de convite de GRUPO aceito como destino de uma campanha da Central de Disparos (`lib/campaigns/schemas.ts`). É validação de entrada: o redirecionador só abre link que uma pessoa autorizada cadastrou E que é de WhatsApp — sem esta lista fixa, o destino viraria redirecionamento aberto para qualquer site.",
+  },
+  "whatsapp.com": {
+    categoria: "PLATAFORMA",
+    motivo:
+      "aceito como destino de campanha só no caminho de CANAL do WhatsApp (`whatsapp.com/channel/…`), na mesma validação de entrada de `lib/campaigns/schemas.ts`. Não é destino de chamada do servidor: o código nunca faz requisição a ele.",
+  },
   // ── destino de chamada: o código fala com eles, sempre foi assim ──────────
   "api.openai.com": {
     categoria: "FORNECEDOR",
@@ -1061,6 +1072,10 @@ describe("catraca de host de terceiro no código que embarca", () => {
     ).toEqual([
       "000000000000-xxxxxxxx.apps.googleusercontent.com",
       "aistudio.google.com",
+      // Decisão escrita (Central de Disparos): hosts de WhatsApp aceitos como DESTINO
+      // de campanha na validação de entrada. Lista fixa de propósito — ver o motivo em
+      // HOSTS_DECLARADOS. Não é host de revendedor nem de terceiro que recebe chamada.
+      "chat.whatsapp.com",
       "console.anthropic.com",
       "deskcomm.app",
       "meet.google.com",
@@ -1076,6 +1091,7 @@ describe("catraca de host de terceiro no código que embarca", () => {
       // enxergá-lo, e não porque o produto ganhou host novo.
       "s.whatsapp.net",
       "tusitio.com",
+      "whatsapp.com",
     ]);
   });
 

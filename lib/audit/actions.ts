@@ -587,6 +587,21 @@ export const AUDIT_ACTIONS = [
   // Mover um card para OUTRO funil (issue #922) clona o negócio no destino e
   // encerra o original: é a escrita que mexe em DOIS funis de uma vez.
   "lead.moved_to_pipeline",
+  // Central de Disparos (migration 0280). Cada código é UMA decisão do operador sobre a
+  // campanha; o antes/depois (mensagem V2 -> V3, destino BLACK #04 -> #05) vai em
+  // `metadata`, e a linha do tempo operacional completa fica em `campaign_events`.
+  "campaign.created",
+  "campaign.updated",
+  "campaign.ready",
+  "campaign.started",
+  "campaign.paused",
+  "campaign.resumed",
+  "campaign.completed",
+  "campaign.cancelled",
+  "campaign.channels_changed",
+  "campaign.version_created",
+  "campaign.destination_added",
+  "campaign.destination_changed",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */
