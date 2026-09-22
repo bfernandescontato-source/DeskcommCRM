@@ -115,8 +115,8 @@ export function visao(extra: Record<string, unknown> = {}) {
         { version_no: 2, version_id: "v2", sent: 3420, clicked: 1184, replied: 51, failed: 2 },
       ],
       by_destination: [
-        { destination_id: "d3", sequence_no: 3, name: "BLACK #03", status: "closed", capacity: 1000, opened_at: null, closed_at: null, close_reason: "full", directed: 1000, clicked: 700, joined: 0, left: 0, clicks_raw: 700 },
-        { destination_id: "d4", sequence_no: 4, name: "BLACK #04", status: "active", capacity: 1000, opened_at: null, closed_at: null, close_reason: null, directed: 920, clicked: 800, joined: 0, left: 0, clicks_raw: 800 },
+        { destination_id: "d3", sequence_no: 3, name: "BLACK #03", status: "closed", capacity: 1000, opened_at: null, closed_at: null, close_reason: "full", directed: 1000, clicked: 700, joined: 0, left: 0, clicks_raw: 700, members: 0, members_left: 0, joined_total: 0 },
+        { destination_id: "d4", sequence_no: 4, name: "BLACK #04", status: "active", capacity: 1000, opened_at: null, closed_at: null, close_reason: null, directed: 920, clicked: 800, joined: 0, left: 0, clicks_raw: 800, members: 0, members_left: 0, joined_total: 0 },
       ],
       by_channel: [],
     },

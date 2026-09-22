@@ -33,6 +33,7 @@ ser fonte sem ninguém decidir isso.
 | `marca-propria.architecture.json` | marca própria (white-label) — 37 peças, 54 arestas, 6 faixas; a pilha org → instalação → `.env` → padrão, as saídas SEM DOM (`marcaDaSaida`) e a **não-ligação declarada** do PDF de LGPD, que imprime o CONTROLADOR e nunca a marca de quem revende |
 | `retencao-de-historico.architecture.json` | poda do histórico (issue #261) — 16 peças, 18 arestas, 6 faixas; o que sai (`done`/`failed`/`dead` velho), o que tem dono e **não** sai (`pending`/`running`, e `dead` com aviso ainda aberto), e por que o expurgo do audit é uma `security definer` sem seletor de linha em vez de uma porta |
 | `extensoes-declarativas.architecture.json` | perfil declarativo: catálogo de ensaio, admissão, recibos, arquivo local, ativação por organização, guia no CRM, as trocas de versão (atualizar e desfazer a última troca), a remoção da instalação e a auditoria da organização; o estado das provas fica no `contracts.status` do próprio mapa |
+| `central-de-disparos.architecture.json` | Central de Disparos (migrations 0280–0286) — 28 peças, 39 arestas, 5 faixas; fila persistente no banco, ritmo fixo sem jitter, envio incerto que nunca é reenviado sozinho, e as **não-ligações declaradas** (clique não vira entrada, alerta não troca destino, nada de segunda caixa de entrada) |
 
 > **Esta tabela já apodreceu uma vez:** ela listava 8 mapas quando o disco tinha 9 — faltava
 > `indice-de-atrito`. Nenhum teste lê este README (o gate lê os `.json`), então mapa novo que

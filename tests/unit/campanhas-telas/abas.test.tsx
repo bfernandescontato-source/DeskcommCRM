@@ -264,6 +264,33 @@ describe("Destinos", () => {
     expect(within(g3).getByText(/encerrado em .* \(lotado\)/)).toBeInTheDocument();
   });
 
+  it("grupo MONITORADO: ocupação pelos membros medidos (com ou sem identificação) e as entradas identificadas à parte", async () => {
+    const v = visao();
+    const g4 = v.destinations.find((d) => d.id === "d4")! as { group_chat_id: string | null };
+    g4.group_chat_id = "1203630000000@g.us";
+    Object.assign(v.metrics.by_destination.find((d) => d.destination_id === "d4")!, { members: 930, joined_total: 1000, members_left: 70, joined: 800 });
+    servidor({ [OVERVIEW]: { corpo: { data: v } } });
+    renderizar(<CampanhaClient id={C1} pode={PODE_TUDO} />);
+    const card = (await screen.findByRole("heading", { name: "BLACK #04" })).closest("article")!;
+    expect(within(card).getByText(/930 de 1\.000 \(93%\) · membros medidos/)).toBeInTheDocument();
+    expect(within(card).queryByText(/estimativa: o CRM não vê este grupo/)).toBeNull();
+    const fatos = within(card).getByText("Entraram").closest("div")!;
+    expect(within(fatos).getByText("1.000")).toBeInTheDocument(); // todos os que entraram
+    expect(within(card).getByText("Identificados").closest("div")).toHaveTextContent("800");
+    expect(within(card).queryByText(/ainda não chegou nenhum aviso/)).toBeNull();
+  });
+
+  it("grupo com ID e sem nenhum aviso: avisa e continua na estimativa por direcionados — não afirma zero pessoas", async () => {
+    const v = visao();
+    (v.destinations.find((d) => d.id === "d4")! as { group_chat_id: string | null }).group_chat_id = "1203630000000@g.us";
+    servidor({ [OVERVIEW]: { corpo: { data: v } } });
+    renderizar(<CampanhaClient id={C1} pode={PODE_TUDO} />);
+    const card = (await screen.findByRole("heading", { name: "BLACK #04" })).closest("article")!;
+    expect(within(card).getByText(/Grupo monitorado, mas ainda não chegou nenhum aviso de entrada ou saída/)).toBeInTheDocument();
+    expect(within(card).getAllByText("aguardando o primeiro aviso")).toHaveLength(2);
+    expect(within(card).getByText(/920 de 1\.000 \(92%\) · pessoas direcionadas \(estimativa/)).toBeInTheDocument();
+  });
+
   it("trocar de grupo confirma De → Para, pede o motivo e manda o grupo atual esperado (para não pisar em quem trocou antes)", async () => {
     const s = servidor({
       [OVERVIEW]: { corpo: { data: visao() } },

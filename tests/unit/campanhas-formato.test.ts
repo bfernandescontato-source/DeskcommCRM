@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { readFileSync } from "node:fs";
-import { duracaoEmPalavras, estimativaDeEnvio, revisaoDaCampanha, usaLinkDoGrupo, estadoDoContato, filtroRapidoDoStatus, FILTROS_RAPIDOS, contextoDeNomes, MOTIVO_DO_VETO, rotuloDoCanal, acoesDaCampanha, destinoDoAlerta, dataHoraCurta, frasesDoEvento, funil, haQuantoTempo, horaCompleta, MOTIVO_DE_IGNORADO, MOTIVO_DE_REJEICAO, numero, percentual, ROTULO_DA_CAMPANHA, ROTULO_DO_ESTADO_DO_CONTATO, ROTULO_DO_ENVIO } from "@/lib/campaigns/formato";
+import { entradasSemIdentificacao, medicaoDoDestino, duracaoEmPalavras, estimativaDeEnvio, revisaoDaCampanha, usaLinkDoGrupo, estadoDoContato, filtroRapidoDoStatus, FILTROS_RAPIDOS, contextoDeNomes, MOTIVO_DO_VETO, rotuloDoCanal, acoesDaCampanha, destinoDoAlerta, dataHoraCurta, frasesDoEvento, funil, haQuantoTempo, horaCompleta, MOTIVO_DE_IGNORADO, MOTIVO_DE_REJEICAO, numero, percentual, ROTULO_DA_CAMPANHA, ROTULO_DO_ESTADO_DO_CONTATO, ROTULO_DO_ENVIO } from "@/lib/campaigns/formato";
 import { ROTULO_DO_MOTIVO } from "@/lib/campaigns/importacao";
 import { CAMPAIGN_CONTACT_STATUSES, CAMPAIGN_EVENT_KINDS, CAMPAIGN_IMPORT_REJECT_REASONS, CAMPAIGN_SKIP_REASONS, CAMPAIGN_STATUSES } from "@/lib/campaigns/vocabulario";
 
@@ -280,5 +280,21 @@ describe("assistente: quanto tempo leva", () => {
     expect(duracaoEmPalavras(21)).toBe("cerca de 3 semanas");
     expect(duracaoEmPalavras(150)).toBe("cerca de 5 meses");
     expect(duracaoEmPalavras(21, (x) => (x === "cerca de {n} semanas" ? "unas {n} semanas" : x))).toBe("unas 3 semanas");
+  });
+});
+
+describe("entradas e saídas do grupo: o que o CRM enxerga", () => {
+  it("três estados: sem ID não monitora; com ID e sem aviso AGUARDA (não é zero); com aviso, mede", () => {
+    expect(medicaoDoDestino({ group_chat_id: null, joined_total: 10, members_left: 3 })).toBe("nao_monitorado");
+    expect(medicaoDoDestino({ group_chat_id: "1203@g.us", joined_total: 0, members_left: 0 })).toBe("aguardando");
+    expect(medicaoDoDestino({ group_chat_id: "1203@g.us" })).toBe("aguardando"); // 0286 ainda não aplicada: campos ausentes
+    expect(medicaoDoDestino({ group_chat_id: "1203@g.us", joined_total: 1, members_left: 0 })).toBe("medido");
+    // Só chegou uma SAÍDA (nunca vimos a entrada): já é evidência de que o aviso funciona.
+    expect(medicaoDoDestino({ group_chat_id: "1203@g.us", joined_total: 0, members_left: 1 })).toBe("medido");
+  });
+  it("entradas sem identificação: o total de pessoas que entraram menos as identificadas, nunca negativo", () => {
+    expect(entradasSemIdentificacao([{ joined_total: 2000 }, { joined_total: 300 }], 1731)).toBe(569);
+    expect(entradasSemIdentificacao([{ joined_total: 10 }], 25)).toBe(0);
+    expect(entradasSemIdentificacao([{}, { joined_total: null }], 0)).toBe(0);
   });
 });

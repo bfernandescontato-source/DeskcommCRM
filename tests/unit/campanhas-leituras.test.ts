@@ -39,6 +39,22 @@ describe("alertas — só o que exige atenção", () => {
     expect(codigos(retrato({ destinations: [{ name: "B1", status: "active", capacity: null, directed: 5000, joined: 0, left: 0, measured: true }] }))).toEqual([]);
   });
 
+  it("com membros medidos, a ocupação é o número de pessoas no grupo AGORA — inclui quem não foi identificado", () => {
+    const d = { name: "B1", status: "active", capacity: 1000, directed: 500, joined: 300, left: 10, measured: true, members: 930 };
+    expect(ocupacaoDoDestino(d)).toEqual({ usado: 930, base: "members" });
+    // Sem `members` (0286 ainda não aplicada) cai na conta antiga, dos contatos identificados.
+    expect(ocupacaoDoDestino({ ...d, members: undefined })).toEqual({ usado: 290, base: "members" });
+    // Sem medição, nunca usa membros: estimativa por direcionados.
+    expect(ocupacaoDoDestino({ ...d, measured: false })).toEqual({ usado: 500, base: "directed" });
+  });
+
+  it("o alerta de capacidade dispara pelos membros medidos, e só avisa — a troca é do operador", () => {
+    const r = retrato({ destinations: [{ name: "BLACK #04", status: "active", capacity: 1000, directed: 100, joined: 5, left: 0, measured: true, members: 930 }] });
+    const a = calcularAlertas(r).find((x) => x.code === "destination_near_capacity" || x.action === "switch_destination");
+    expect(a).toBeDefined();
+    expect(a!.action).toBe("switch_destination");
+  });
+
   it("sem entradas MEDIDAS a ocupação é o que foi direcionado, e o texto diz isso (nunca finge medir)", () => {
     const d = { name: "B1", status: "active", capacity: 100, directed: 95, joined: 0, left: 0, measured: false };
     expect(ocupacaoDoDestino(d)).toEqual({ usado: 95, base: "directed" });

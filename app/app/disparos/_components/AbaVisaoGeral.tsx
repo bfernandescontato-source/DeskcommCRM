@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { VisaoGeral } from "@/hooks/campaigns/useCampanhas";
 import { ocupacaoDoDestino } from "@/lib/campaigns/alertas";
-import { funil, MOTIVO_DO_VETO, numero, percentual, ROTULO_DO_CANAL } from "@/lib/campaigns/formato";
+import { funil, MOTIVO_DO_VETO, numero, percentual, ROTULO_DO_CANAL, entradasSemIdentificacao, medicaoDoDestino } from "@/lib/campaigns/formato";
 import type { PermissoesDaCentral } from "@/lib/campaigns/permissoes";
 
 import { DialogoDeNumeros, DialogoDeRitmo } from "./DialogosDaCampanha";
@@ -18,7 +18,13 @@ export function AbaVisaoGeral({ v, pode }: { v: VisaoGeral; pode: PermissoesDaCe
   const { t } = useTexto();
   const c = v.counts;
   const aberta = v.campaign.status !== "completed" && v.campaign.status !== "cancelled";
-  const medido = v.destinations.some((d) => d.group_chat_id !== null);
+  const medicoes = v.destinations.map((d) => {
+    const m = v.metrics.by_destination.find((x) => x.destination_id === d.id);
+    return medicaoDoDestino({ group_chat_id: d.group_chat_id, joined_total: m?.joined_total, members_left: m?.members_left });
+  });
+  const medido = medicoes.includes("medido");
+  const aguardando = !medido && medicoes.includes("aguardando");
+  const semIdentificar = medido ? entradasSemIdentificacao(v.metrics.by_destination, c.joined) : 0;
   const { etapas, taxas } = funil({ total: c.total, sent: c.sent, clicked: c.clicked, joined: c.joined, left: c.left }, medido);
   const processados = c.sent + c.failed + c.uncertain + c.skipped + c.cancelled;
   const pendentes = c.pending + c.queued + c.processing;
@@ -60,7 +66,14 @@ export function AbaVisaoGeral({ v, pode }: { v: VisaoGeral; pode: PermissoesDaCe
         </dl>
         {!medido ? (
           <p className="mt-3 text-xs text-text-muted">
-            {t("Entradas e saídas do grupo só são contadas quando o grupo de destino é monitorado (informe o ID do grupo em Destinos). Um clique não prova que a pessoa entrou.")}
+            {aguardando
+              ? t("O grupo está cadastrado, mas ainda não chegou nenhum aviso de entrada ou saída. Enquanto isso, entradas e saídas aparecem como não medidas — um clique não prova que a pessoa entrou.")
+              : t("Entradas e saídas do grupo só são contadas quando o grupo de destino é monitorado (informe o ID do grupo em Destinos). Um clique não prova que a pessoa entrou.")}
+          </p>
+        ) : null}
+        {semIdentificar > 0 ? (
+          <p className="mt-3 text-xs text-text-muted">
+            {pf(t(semIdentificar === 1 ? "{n} pessoa entrou nos grupos sem ser identificada como contato desta campanha." : "{n} pessoas entraram nos grupos sem serem identificadas como contatos desta campanha."), { n: numero(semIdentificar) })}
           </p>
         ) : null}
       </Secao>
@@ -87,8 +100,9 @@ export function AbaVisaoGeral({ v, pode }: { v: VisaoGeral; pode: PermissoesDaCe
           <Tabela
             cabecalho={["Grupo", "Recebeu", "Cliques", "Entradas", "Ocupação"]}
             linhas={v.metrics.by_destination.map((d) => {
-              const med = v.destinations.find((x) => x.id === d.destination_id)?.group_chat_id != null;
-              const oc = ocupacaoDoDestino({ name: d.name, status: d.status, capacity: d.capacity, directed: d.directed, joined: d.joined, left: d.left, measured: med });
+              const medicao = medicaoDoDestino({ group_chat_id: v.destinations.find((x) => x.id === d.destination_id)?.group_chat_id ?? null, joined_total: d.joined_total, members_left: d.members_left });
+              const med = medicao === "medido";
+              const oc = ocupacaoDoDestino({ name: d.name, status: d.status, capacity: d.capacity, directed: d.directed, joined: d.joined, left: d.left, measured: med, members: d.members });
               return [
                 <span key="g" className="flex items-center gap-2">
                   {d.name}
@@ -96,7 +110,7 @@ export function AbaVisaoGeral({ v, pode }: { v: VisaoGeral; pode: PermissoesDaCe
                 </span>,
                 numero(d.directed),
                 numero(d.clicked),
-                med ? pf(t("{joined} / {left} saíram"), { joined: numero(d.joined), left: numero(d.left) }) : t("não medido"),
+                med ? pf(t("{joined} / {left} saíram"), { joined: numero(d.joined_total ?? 0), left: numero(d.members_left ?? 0) }) : t(medicao === "aguardando" ? "aguardando aviso" : "não medido"),
                 d.capacity ? `${pf(t("{usado} de {capacidade}"), { usado: numero(oc.usado), capacidade: numero(d.capacity) })}${oc.base === "directed" ? ` ${t("(estim.)")}` : ""}` : `${numero(oc.usado)}`,
               ];
             })}

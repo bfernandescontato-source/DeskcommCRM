@@ -1,0 +1,545 @@
+{
+ "schema_version": 1,
+ "diagram_type": "architecture",
+ "meta": {
+  "title": "Central de Disparos",
+  "subtitle": "Campanhas de WhatsApp com fila persistente no banco: importar, enviar devagar, pausar do ponto exato, medir só com evidência",
+  "source_of_truth": "json",
+  "status": "em construção — nada em produção ainda",
+  "migrations": "0280 a 0286"
+ },
+ "lanes": [
+  {
+   "id": "entrada",
+   "label": "Entrada — quem põe uma campanha em movimento"
+  },
+  {
+   "id": "estado",
+   "label": "Banco — a fonte da verdade (nada de estado em memória)"
+  },
+  {
+   "id": "envio",
+   "label": "Envio — um contato por número por minuto, com o mesmo gate do Inbox"
+  },
+  {
+   "id": "retorno",
+   "label": "Retorno — o que o WhatsApp e as pessoas devolvem (só com evidência)"
+  },
+  {
+   "id": "leitura",
+   "label": "Leitura — o que a tela e os alertas enxergam"
+  }
+ ],
+ "mainPath": [
+  "wizard",
+  "api",
+  "csv",
+  "contatos",
+  "cron",
+  "despachante",
+  "envio",
+  "waha",
+  "rotag",
+  "clicks",
+  "hook",
+  "grupos",
+  "fnrecord",
+  "gevents",
+  "metricas",
+  "ui"
+ ],
+ "nodes": [
+  {
+   "id": "wizard",
+   "lane": "entrada",
+   "col": 0,
+   "type": "route",
+   "label": "Assistente de 5 passos",
+   "sublabel": "app/app/disparos/nova — o rascunho e o CSV em andamento vivem no servidor; F5 retoma"
+  },
+  {
+   "id": "api",
+   "lane": "entrada",
+   "col": 1,
+   "type": "api",
+   "label": "/api/v1/campaigns/**",
+   "sublabel": "rotaDeCampanha: papel (manager opera; admin inicia/encerra) + Zod strict + suporte somente-leitura"
+  },
+  {
+   "id": "csv",
+   "lane": "entrada",
+   "col": 2,
+   "type": "api",
+   "label": "Importação de CSV",
+   "sublabel": "upload → prévia → mapear → validar → importar em lotes; 250 mil linhas sem travar a tela"
+  },
+  {
+   "id": "cron",
+   "lane": "entrada",
+   "col": 3,
+   "type": "config",
+   "label": "cron campaign-dispatcher",
+   "sublabel": "scheduler + vercel.ts, 1 vez por minuto; sobrevive a reinício porque o estado é do banco"
+  },
+  {
+   "id": "campaigns",
+   "lane": "estado",
+   "col": 0,
+   "type": "table",
+   "label": "campaigns",
+   "sublabel": "máquina de estados; ponteiros active_version/active_destination valem para o PRÓXIMO envio"
+  },
+  {
+   "id": "versions",
+   "lane": "estado",
+   "col": 1,
+   "type": "table",
+   "label": "campaign_message_versions",
+   "sublabel": "imutável: editar cria a V2, a V3…; quem já recebeu fica com a que recebeu"
+  },
+  {
+   "id": "destinations",
+   "lane": "estado",
+   "col": 2,
+   "type": "table",
+   "label": "campaign_destinations",
+   "sublabel": "um ativo por campanha (índice parcial); troca sempre manual, com histórico"
+  },
+  {
+   "id": "staging",
+   "lane": "estado",
+   "col": 3,
+   "type": "table",
+   "label": "campaign_import_rows",
+   "sublabel": "staging só do servidor; linhas recusadas viram o CSV que a pessoa baixa"
+  },
+  {
+   "id": "contatos",
+   "lane": "estado",
+   "col": 0,
+   "type": "table",
+   "label": "campaign_contacts",
+   "sublabel": "status de ENTREGA + carimbos de engajamento (clicou, respondeu, entrou, saiu) — eixos independentes"
+  },
+  {
+   "id": "events",
+   "lane": "estado",
+   "col": 1,
+   "type": "table",
+   "label": "campaign_events",
+   "sublabel": "trilha append-only até para o service_role; quem fez, o quê, quando"
+  },
+  {
+   "id": "claim",
+   "lane": "estado",
+   "col": 2,
+   "type": "lib",
+   "label": "fn_campaign_claim_batch",
+   "sublabel": "reserva com FOR UPDATE SKIP LOCKED; lease vence e volta para a fila"
+  },
+  {
+   "id": "despachante",
+   "lane": "envio",
+   "col": 0,
+   "type": "lib",
+   "label": "despachante.ts",
+   "sublabel": "um contato por número por tick; ponto sem volta em fn_campaign_begin_send"
+  },
+  {
+   "id": "ritmo",
+   "lane": "envio",
+   "col": 1,
+   "type": "lib",
+   "label": "ritmo.ts",
+   "sublabel": "janela, aquecimento, teto diário e intervalo FIXO (180s). Sem jitter, sem variação de texto"
+  },
+  {
+   "id": "envio",
+   "lane": "envio",
+   "col": 2,
+   "type": "lib",
+   "label": "envio.ts → sendMessageHandler",
+   "sublabel": "o mesmo caminho de envio do Inbox; conversa nasce arquivada até a pessoa responder"
+  },
+  {
+   "id": "waha",
+   "lane": "envio",
+   "col": 3,
+   "type": "service",
+   "label": "WAHA → WhatsApp",
+   "sublabel": "API não oficial: por isso ritmo lento e poucos números"
+  },
+  {
+   "id": "incerto",
+   "lane": "envio",
+   "col": 4,
+   "type": "lib",
+   "label": "envio INCERTO",
+   "sublabel": "worker morreu no meio: nunca reenvia sozinho; uma pessoa decide (enviou / tentar de novo / falhou)"
+  },
+  {
+   "id": "rotag",
+   "lane": "retorno",
+   "col": 0,
+   "type": "route",
+   "label": "/g/[token]",
+   "sublabel": "pública; 302 na hora; clique gravado depois (after()); sem IP nem user-agent"
+  },
+  {
+   "id": "clicks",
+   "lane": "retorno",
+   "col": 1,
+   "type": "table",
+   "label": "campaign_clicks",
+   "sublabel": "só agent_class=browser conta como pessoa; pré-visualização do WhatsApp e robô ficam gravados, não contam"
+  },
+  {
+   "id": "trgresp",
+   "lane": "retorno",
+   "col": 2,
+   "type": "table",
+   "label": "trg_campaign_on_inbound_message",
+   "sublabel": "AFTER INSERT em messages inbound: marca 'respondeu' (janela de 7 dias) e reabre a conversa"
+  },
+  {
+   "id": "inbox",
+   "lane": "retorno",
+   "col": 3,
+   "type": "route",
+   "label": "Inbox (existente)",
+   "sublabel": "a resposta cai onde sempre caiu — não existe segunda caixa de entrada"
+  },
+  {
+   "id": "hook",
+   "lane": "retorno",
+   "col": 4,
+   "type": "config",
+   "label": "WHATSAPP_HOOK_EVENTS",
+   "sublabel": "group.v2.participants nos dois compose; sem ele o funil diz 'não medido'"
+  },
+  {
+   "id": "grupos",
+   "lane": "retorno",
+   "col": 5,
+   "type": "lib",
+   "label": "grupos.ts → dispatchWahaEvent",
+   "sublabel": "lê o aviso do WAHA e NUNCA derruba a ingestão de mensagens (engole erro)"
+  },
+  {
+   "id": "fnrecord",
+   "lane": "retorno",
+   "col": 6,
+   "type": "lib",
+   "label": "fn_campaign_record_group_event",
+   "sublabel": "idempotente; atribui por telefone ou wa_lid só entre contatos ENVIADOS; sem atribuição vira 'unattributed'"
+  },
+  {
+   "id": "gevents",
+   "lane": "retorno",
+   "col": 7,
+   "type": "table",
+   "label": "campaign_group_events",
+   "sublabel": "append-only; só md5 do participante (sem telefone cru); grupo que não é destino não é gravado"
+  },
+  {
+   "id": "metricas",
+   "lane": "leitura",
+   "col": 0,
+   "type": "lib",
+   "label": "fn_campaign_metrics / dashboard",
+   "sublabel": "contadores SEMPRE da fonte (as linhas), nunca de agregado que possa divergir"
+  },
+  {
+   "id": "alertas",
+   "lane": "leitura",
+   "col": 1,
+   "type": "lib",
+   "label": "alertas.ts (função pura)",
+   "sublabel": "INFO/WARNING/CRITICAL com a ação que resolve; capacidade perto do limite AVISA, nunca troca sozinho"
+  },
+  {
+   "id": "ui",
+   "lane": "leitura",
+   "col": 2,
+   "type": "route",
+   "label": "app/app/disparos",
+   "sublabel": "painel, página da campanha (Visão geral, Fila, Mensagens, Destinos, Atividade), ficha do contato; t() + espanhol"
+  },
+  {
+   "id": "audit",
+   "lane": "leitura",
+   "col": 3,
+   "type": "table",
+   "label": "api_audit_log",
+   "sublabel": "toda ação de campanha (criar, iniciar, pausar, trocar destino…) com quem fez"
+  }
+ ],
+ "edges": [
+  {
+   "id": "e1",
+   "from": "wizard",
+   "to": "api",
+   "label": "cada passo é uma chamada curta"
+  },
+  {
+   "id": "e2",
+   "from": "api",
+   "to": "campaigns",
+   "label": "fn_campaign_transition / update_settings"
+  },
+  {
+   "id": "e3",
+   "from": "api",
+   "to": "versions",
+   "label": "nova versão (activate true/false)"
+  },
+  {
+   "id": "e4",
+   "from": "api",
+   "to": "destinations",
+   "label": "cadastrar e ativar destino"
+  },
+  {
+   "id": "e5",
+   "from": "wizard",
+   "to": "csv",
+   "label": "upload do arquivo"
+  },
+  {
+   "id": "e6",
+   "from": "csv",
+   "to": "staging",
+   "label": "linhas cruas em lotes"
+  },
+  {
+   "id": "e7",
+   "from": "csv",
+   "to": "contatos",
+   "label": "importa só o que validou; não emite contact.created"
+  },
+  {
+   "id": "e8",
+   "from": "api",
+   "to": "audit",
+   "label": "audit() de cada ação com efeito"
+  },
+  {
+   "id": "e9",
+   "from": "api",
+   "to": "events",
+   "label": "fn_campaign_log com o ator"
+  },
+  {
+   "id": "e10",
+   "from": "cron",
+   "to": "despachante",
+   "label": "POST autenticado a cada minuto"
+  },
+  {
+   "id": "e11",
+   "from": "despachante",
+   "to": "claim",
+   "label": "reserva o próximo contato de cada número"
+  },
+  {
+   "id": "e12",
+   "from": "claim",
+   "to": "contatos",
+   "label": "pending → queued → processing"
+  },
+  {
+   "id": "e13",
+   "from": "despachante",
+   "to": "ritmo",
+   "label": "pode enviar agora? (janela, teto, intervalo)"
+  },
+  {
+   "id": "e14",
+   "from": "ritmo",
+   "to": "despachante",
+   "label": "veto com motivo: fora da janela, teto diário, intervalo"
+  },
+  {
+   "id": "e15",
+   "from": "despachante",
+   "to": "envio",
+   "label": "texto renderizado com a versão e o destino do MOMENTO"
+  },
+  {
+   "id": "e16",
+   "from": "envio",
+   "to": "waha",
+   "label": "sendMessageHandler"
+  },
+  {
+   "id": "e17",
+   "from": "envio",
+   "to": "inbox",
+   "label": "cria a conversa arquivada (a resposta a reabre)"
+  },
+  {
+   "id": "e18",
+   "from": "despachante",
+   "to": "incerto",
+   "label": "timeout/queda depois do ponto sem volta"
+  },
+  {
+   "id": "e19",
+   "from": "incerto",
+   "to": "contatos",
+   "label": "uncertain até uma pessoa resolver"
+  },
+  {
+   "id": "e20",
+   "from": "despachante",
+   "to": "events",
+   "label": "sent / send_failed / uncertain / skipped"
+  },
+  {
+   "id": "e21",
+   "from": "waha",
+   "to": "rotag",
+   "label": "quem recebe clica no link"
+  },
+  {
+   "id": "e22",
+   "from": "rotag",
+   "to": "clicks",
+   "label": "registra depois do 302"
+  },
+  {
+   "id": "e23",
+   "from": "clicks",
+   "to": "contatos",
+   "label": "clicked_at — só se for navegador"
+  },
+  {
+   "id": "e24",
+   "from": "inbox",
+   "to": "trgresp",
+   "label": "mensagem inbound"
+  },
+  {
+   "id": "e25",
+   "from": "trgresp",
+   "to": "contatos",
+   "label": "replied_at"
+  },
+  {
+   "id": "e26",
+   "from": "hook",
+   "to": "grupos",
+   "label": "evento group.v2.participants"
+  },
+  {
+   "id": "e27",
+   "from": "grupos",
+   "to": "fnrecord",
+   "label": "um aviso por participante"
+  },
+  {
+   "id": "e28",
+   "from": "fnrecord",
+   "to": "gevents",
+   "label": "evidência de entrada/saída"
+  },
+  {
+   "id": "e29",
+   "from": "fnrecord",
+   "to": "contatos",
+   "label": "joined_at / left_at — só de contato enviado"
+  },
+  {
+   "id": "e30",
+   "from": "fnrecord",
+   "to": "events",
+   "label": "joined / left"
+  },
+  {
+   "id": "e31",
+   "from": "contatos",
+   "to": "metricas",
+   "label": "funil e quebras por versão, grupo e número"
+  },
+  {
+   "id": "e32",
+   "from": "gevents",
+   "to": "metricas",
+   "label": "membros medidos por grupo"
+  },
+  {
+   "id": "e33",
+   "from": "destinations",
+   "to": "metricas",
+   "label": "capacidade e histórico"
+  },
+  {
+   "id": "e34",
+   "from": "metricas",
+   "to": "alertas",
+   "label": "retrato da campanha"
+  },
+  {
+   "id": "e35",
+   "from": "metricas",
+   "to": "ui",
+   "label": "GET .../overview, /dashboard"
+  },
+  {
+   "id": "e36",
+   "from": "alertas",
+   "to": "ui",
+   "label": "botão para a aba que resolve"
+  },
+  {
+   "id": "e37",
+   "from": "events",
+   "to": "ui",
+   "label": "aba Atividade e linha do tempo do contato"
+  },
+  {
+   "id": "e38",
+   "from": "audit",
+   "to": "ui",
+   "label": "quem fez o quê"
+  },
+  {
+   "id": "e39",
+   "from": "ui",
+   "to": "api",
+   "label": "pausar, retomar, editar mensagem, trocar grupo"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "amber",
+   "title": "O laço de retorno (invariante 7): o que muda no sistema quando isto erra",
+   "items": [
+    "**envio incerto** — se o worker morre depois do ponto sem volta, o contato vira `uncertain` e NUNCA é reenviado sozinho: o placar mostra 'Incertos' e o alerta pede a decisão de uma pessoa. Reenviar automaticamente mandaria a mensagem duas vezes a alguém que talvez já a tenha recebido",
+    "**ritmo errado** — o intervalo e o teto são do banco (`send_interval_seconds`, `daily_cap_per_channel`) e a tela 'Agora' mostra por que cada número não enviou (fora da janela, teto, intervalo); baixar o ritmo vale já para o próximo minuto",
+    "**grupo enchendo** — a ocupação (medida ou estimada) sobe até 90% e o alerta AVISA com o botão 'Trocar grupo'; a troca é sempre de uma pessoa",
+    "**taxa de falha alta** — com amostra mínima de 20 envios, 10% vira WARNING e 30% CRITICAL, com o botão para a Fila filtrada em falhas"
+   ]
+  },
+  {
+   "dot": "red",
+   "title": "Não-ligações declaradas (ausência de aresta é indistinguível de aresta esquecida)",
+   "items": [
+    "**clique NÃO leva a `joined_at`**: `clicks` e `gevents` não têm aresta entre si. Quem clicou e nunca apareceu num aviso de grupo continua 'clicou'",
+    "**alerta NÃO troca destino**: `alertas` só aponta para a UI; nada liga capacidade a `destinations` sem uma pessoa",
+    "**envio NÃO passa por jitter nem por variação de texto**: `ritmo` devolve permitido/vetado com o intervalo escrito, nada aleatório. É decisão do dono: sem imitar comportamento humano nem esconder automação",
+    "**a Central NÃO cria segunda caixa de entrada**: a resposta cai no Inbox existente; `contatos` não tem aresta para nenhuma tela de conversa própria",
+    "**grupo que não é destino NÃO é gravado**: `fnrecord` descarta o aviso sem gravar (nem o telefone de quem entrou)"
+   ]
+  },
+  {
+   "dot": "sky",
+   "title": "O que está provado e o que não está",
+   "items": [
+    "provado no banco real (PGlite, PG17): núcleo, importação, despacho, respostas, rastreio, leituras e grupos — mais de cem invariantes de banco, com mutação nos pontos delicados",
+    "provado por teste de tela (fetch simulado): painel, página da campanha, assistente e o espanhol sem português vazando",
+    "**NÃO provado**: concorrência real do SKIP LOCKED (uma conexão só no PGlite), PG15, o formato real do aviso `group.v2.participants` no WAHA, e a tela contra um Supabase de verdade"
+   ]
+  }
+ ]
+}

@@ -513,3 +513,32 @@ export function duracaoEmPalavras(dias: number | null, t: Traduz = igual): strin
   if (dias < 60) return comN(t, "cerca de {n} semanas", Math.round(dias / 7));
   return comN(t, "cerca de {n} meses", Math.round(dias / 30));
 }
+
+// ── entradas e saídas do grupo: o que o CRM enxerga ─────────────────────────
+
+/**
+ * O CRM enxerga as entradas e saídas deste grupo?
+ *
+ *  - `nao_monitorado`: o destino não tem o ID do grupo — não há como receber o aviso do WhatsApp.
+ *  - `aguardando`: tem o ID, mas NENHUM aviso de entrada/saída chegou ainda. Não é "zero pessoas": é
+ *    "ainda sem evidência" (grupo novo, número que não está no grupo, ou o aviso não está chegando).
+ *  - `medido`: já chegou ao menos um aviso; os números passam a valer.
+ *
+ * Zero mostrado com segurança quando não se está medindo seria uma mentira; por isso o terceiro estado.
+ */
+export type Medicao = "nao_monitorado" | "aguardando" | "medido";
+
+export function medicaoDoDestino(d: { group_chat_id: string | null; joined_total?: number | null; members_left?: number | null }): Medicao {
+  if (!d.group_chat_id) return "nao_monitorado";
+  return (d.joined_total ?? 0) > 0 || (d.members_left ?? 0) > 0 ? "medido" : "aguardando";
+}
+
+/**
+ * Quantas pessoas entraram nos grupos SEM serem identificadas como contatos desta campanha. Vem de
+ * evidência (o aviso do WhatsApp existe) e não de suposição: a pessoa pode ter entrado por outro
+ * caminho, ou o WhatsApp só informou um identificador que o CRM não conhece.
+ */
+export function entradasSemIdentificacao(destinos: Array<{ joined_total?: number | null }>, identificados: number): number {
+  const total = destinos.reduce((soma, d) => soma + (d.joined_total ?? 0), 0);
+  return Math.max(total - identificados, 0);
+}

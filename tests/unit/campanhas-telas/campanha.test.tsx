@@ -62,11 +62,25 @@ describe("Página da campanha — Visão geral", () => {
     expect(within(numeros).getByText(/Aguardando: aguardando o intervalo entre envios/)).toBeInTheDocument();
   });
 
-  it("com o grupo monitorado (ID do grupo cadastrado), o funil mostra números, não 'não medido'", async () => {
+  it("grupo com ID mas SEM nenhum aviso ainda: 'aguardando' — as entradas ficam 'não medidas', nunca um zero dito com segurança", async () => {
     const v = visao();
     (v.destinations as Array<{ group_chat_id: string | null }>).forEach((d) => (d.group_chat_id = "1203630000000@g.us"));
+    servidor({ [OVERVIEW]: { corpo: { data: v } } });
+    renderizar(<CampanhaClient id={C1} pode={PODE_TUDO} />);
+    const funil = (await screen.findByRole("heading", { name: "Funil" })).closest("section")!;
+    expect(within(funil).getAllByText("não medido").length).toBeGreaterThanOrEqual(3);
+    expect(within(funil).getByText(/ainda não chegou nenhum aviso de entrada ou saída/)).toBeInTheDocument();
+    const grupos = screen.getByRole("heading", { name: "Por grupo de destino" }).closest("section")!;
+    expect(within(grupos).getAllByText("aguardando aviso").length).toBeGreaterThan(0);
+  });
+
+  it("com avisos do WhatsApp o funil mostra números — e diz quantas pessoas entraram sem ser identificadas", async () => {
+    const v = visao();
+    (v.destinations as Array<{ id: string; group_chat_id: string | null }>).forEach((d) => (d.group_chat_id = "1203630000000@g.us"));
     (v.counts as { joined: number }).joined = 1731;
     (v.counts as { left: number }).left = 146;
+    const d4 = v.metrics.by_destination.find((d) => d.destination_id === "d4")!;
+    Object.assign(d4, { joined_total: 2000, members: 1700, members_left: 100 });
     servidor({ [OVERVIEW]: { corpo: { data: v } } });
     renderizar(<CampanhaClient id={C1} pode={PODE_TUDO} />);
     const funil = (await screen.findByRole("heading", { name: "Funil" })).closest("section")!;
@@ -74,6 +88,8 @@ describe("Página da campanha — Visão geral", () => {
     expect(within(funil).getByText("146")).toBeInTheDocument();
     expect(within(funil).getByText("1.585")).toBeInTheDocument(); // permanecem
     expect(within(funil).queryByText("não medido")).toBeNull();
+    // 2.000 entraram nos grupos; 1.731 são contatos desta campanha; as outras 269 vieram por outro caminho.
+    expect(within(funil).getByText("269 pessoas entraram nos grupos sem serem identificadas como contatos desta campanha.")).toBeInTheDocument();
   });
 
   it("admin vê PAUSAR e ENCERRAR; manager só PAUSAR — e ENCERRAR explica a diferença antes de agir", async () => {

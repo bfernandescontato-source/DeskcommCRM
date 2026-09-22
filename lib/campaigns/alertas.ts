@@ -37,8 +37,10 @@ export interface RetratoDaCampanha {
     directed: number;
     joined: number;
     left: number;
-    /** O CRM enxerga o grupo (tem id do grupo)? Só então entradas e saídas são MEDIDAS. */
+    /** O CRM já recebeu aviso de entrada/saída deste grupo? Só então entradas e saídas são MEDIDAS. */
     measured: boolean;
+    /** Pessoas no grupo agora, pela última notícia de cada uma (com ou sem identificação). */
+    members?: number;
   }>;
   lastImport: { rejected: number; found: number } | null;
 }
@@ -52,9 +54,12 @@ export const LIMIAR_DE_FALHA_CRITICA = 0.3;
 
 const ORDEM: Record<NivelDeAlerta, number> = { critical: 0, warning: 1, info: 2 };
 
-/** Quantas pessoas o destino tem AGORA: entradas menos saídas se medido; senão, o que foi direcionado. */
+/**
+ * Quantas pessoas o destino tem AGORA: os membros medidos (quem tem "entrou" como última notícia) se há
+ * medição; sem `members`, entradas menos saídas dos contatos identificados; sem medição, o que foi direcionado.
+ */
 export function ocupacaoDoDestino(d: RetratoDaCampanha["destinations"][number]): { usado: number; base: "members" | "directed" } {
-  return d.measured ? { usado: Math.max(d.joined - d.left, 0), base: "members" } : { usado: d.directed, base: "directed" };
+  return d.measured ? { usado: d.members ?? Math.max(d.joined - d.left, 0), base: "members" } : { usado: d.directed, base: "directed" };
 }
 
 export function calcularAlertas(r: RetratoDaCampanha): Alerta[] {

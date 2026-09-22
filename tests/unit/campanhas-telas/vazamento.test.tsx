@@ -88,6 +88,30 @@ describe("nenhum português vaza no espanhol", () => {
     });
   }
 
+  for (const [estado, ajuste] of [
+    ["grupo aguardando o primeiro aviso", (v: ReturnType<typeof visao>) => void ((v.destinations.find((d) => d.id === "d4") as unknown as { group_chat_id: string }).group_chat_id = "1203630000000@g.us")],
+    [
+      "grupo medido, com entradas sem identificação",
+      (v: ReturnType<typeof visao>) => {
+        v.destinations.forEach((d) => ((d as { group_chat_id: string | null }).group_chat_id = "1203630000000@g.us"));
+        (v.counts as { joined: number }).joined = 100;
+        Object.assign(v.metrics.by_destination.find((d) => d.destination_id === "d4")!, { joined_total: 400, members: 350, members_left: 20, joined: 100 });
+      },
+    ],
+  ] as const) {
+    for (const aba of ["visao", "destinos"]) {
+      it(`campanha › ${estado} › aba ${aba}`, async () => {
+        nav.params = new URLSearchParams({ aba });
+        const v = visao();
+        ajuste(v);
+        servidor({ [`GET ${BASE}/overview`]: { corpo: { data: v } } });
+        emEspanhol(<CampanhaClient id={C1} pode={PODE_TUDO} />);
+        await screen.findByRole("heading", { name: "BLACK Friday" });
+        expect(vazamentos()).toEqual([]);
+      });
+    }
+  }
+
   it("campanha › ficha do contato (com envio incerto e linha do tempo)", async () => {
     nav.params = new URLSearchParams({ aba: "fila" });
     servidor({

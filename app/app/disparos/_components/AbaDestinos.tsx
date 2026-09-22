@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAtivarDestino, useCadastrarDestino, type VisaoGeral } from "@/hooks/campaigns/useCampanhas";
 import { ocupacaoDoDestino } from "@/lib/campaigns/alertas";
-import { numero, percentual } from "@/lib/campaigns/formato";
+import { numero, percentual, medicaoDoDestino } from "@/lib/campaigns/formato";
 import type { PermissoesDaCentral } from "@/lib/campaigns/permissoes";
 import { conviteValido } from "@/lib/campaigns/schemas";
 import { ArrowSquareOut, Plus } from "@/lib/ui/icons";
@@ -53,8 +53,9 @@ export function AbaDestinos({ v, pode }: { v: VisaoGeral; pode: PermissoesDaCent
         <div className="grid gap-3">
           {v.destinations.map((d) => {
             const m = v.metrics.by_destination.find((x) => x.destination_id === d.id);
-            const medido = d.group_chat_id !== null;
-            const oc = ocupacaoDoDestino({ name: d.name, status: d.status, capacity: d.capacity, directed: m?.directed ?? 0, joined: m?.joined ?? 0, left: m?.left ?? 0, measured: medido });
+            const medicao = medicaoDoDestino({ group_chat_id: d.group_chat_id, joined_total: m?.joined_total, members_left: m?.members_left });
+            const medido = medicao === "medido";
+            const oc = ocupacaoDoDestino({ name: d.name, status: d.status, capacity: d.capacity, directed: m?.directed ?? 0, joined: m?.joined ?? 0, left: m?.left ?? 0, measured: medido, members: m?.members });
             const est = ESTADO_DO_GRUPO[d.status];
             return (
               <article key={d.id} className="rounded-xl border border-border bg-surface p-4">
@@ -92,9 +93,15 @@ export function AbaDestinos({ v, pode }: { v: VisaoGeral; pode: PermissoesDaCent
                 <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
                   <Fato k="Receberam o link" v={numero(m?.directed ?? 0)} />
                   <Fato k="Cliques" v={numero(m?.clicked ?? 0)} />
-                  <Fato k="Entraram" v={medido ? numero(m?.joined ?? 0) : t("não medido")} />
-                  <Fato k="Saíram" v={medido ? numero(m?.left ?? 0) : t("não medido")} />
+                  <Fato k="Entraram" v={medido ? numero(m?.joined_total ?? 0) : t(medicao === "aguardando" ? "aguardando o primeiro aviso" : "não medido")} />
+                  <Fato k="Saíram" v={medido ? numero(m?.members_left ?? 0) : t(medicao === "aguardando" ? "aguardando o primeiro aviso" : "não medido")} />
+                  {medido ? <Fato k="Identificados" v={numero(m?.joined ?? 0)} /> : null}
                 </dl>
+                {medicao === "aguardando" ? (
+                  <p className="mt-2 rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning-fg">
+                    {t("Grupo monitorado, mas ainda não chegou nenhum aviso de entrada ou saída. Se alguém já entrou e isto não muda, confira se um dos números da campanha está no grupo.")}
+                  </p>
+                ) : null}
 
                 <p className="mt-3 text-xs text-text-muted">
                   {d.opened_at ? pf(t("Ativo desde {quando}"), { quando: dataHora(d.opened_at) }) : t("Ainda não foi ativado")}

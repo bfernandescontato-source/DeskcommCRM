@@ -9562,6 +9562,13 @@ export const DICIONARIO: Traducoes = {
   "Editar mensagem (nova versão V{n})": { es: "Editar mensaje (nueva versión V{n})" },
   "{n} contatos": { es: "{n} contactos" },
   "às {hora}": { es: "a las {hora}" },
+  "aguardando o primeiro aviso": { es: "esperando el primer aviso" },
+  "aguardando aviso": { es: "esperando aviso" },
+  "Identificados": { es: "Identificados" },
+  "Grupo monitorado, mas ainda não chegou nenhum aviso de entrada ou saída. Se alguém já entrou e isto não muda, confira se um dos números da campanha está no grupo.": { es: "Grupo monitoreado, pero aún no llegó ningún aviso de entrada o salida. Si alguien ya entró y esto no cambia, verifica que uno de los números de la campaña esté en el grupo." },
+  "O grupo está cadastrado, mas ainda não chegou nenhum aviso de entrada ou saída. Enquanto isso, entradas e saídas aparecem como não medidas — um clique não prova que a pessoa entrou.": { es: "El grupo está registrado, pero aún no llegó ningún aviso de entrada o salida. Mientras tanto, las entradas y salidas aparecen como no medidas — un clic no prueba que la persona entró." },
+  "{n} pessoa entrou nos grupos sem ser identificada como contato desta campanha.": { es: "{n} persona entró a los grupos sin ser identificada como contacto de esta campaña." },
+  "{n} pessoas entraram nos grupos sem serem identificadas como contatos desta campanha.": { es: "{n} personas entraron a los grupos sin ser identificadas como contactos de esta campaña." },
 };
 
 /**

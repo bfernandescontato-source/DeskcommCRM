@@ -11,7 +11,7 @@ import { phoneForDisplay } from "@/lib/channels/phone-variants";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 
 import { calcularAlertas, type Alerta } from "./alertas";
-import { estadoDoContato, type EstadoDoContato } from "./formato";
+import { estadoDoContato, medicaoDoDestino, type EstadoDoContato } from "./formato";
 import { carregarRitmoDoCanal, decidirEnvio, enviadosHojePelaCampanha, type VetoDeRitmo } from "./ritmo";
 import { detalharCampanha, ler, rpc, CampanhaError, type Db } from "./service";
 import type { EventoLinha } from "./tipos";
@@ -45,6 +45,8 @@ export interface MetricasDaCampanha {
     destination_id: string; sequence_no: number; name: string; status: string; capacity: number | null;
     opened_at: string | null; closed_at: string | null; close_reason: string | null;
     directed: number; clicked: number; joined: number; left: number; clicks_raw: number;
+    /** Avisos de grupo (0286): pessoas no grupo agora, que já entraram e que saíram. Podem faltar se a 0286 ainda não foi aplicada. */
+    members?: number; members_left?: number; joined_total?: number;
   }>;
   by_channel: Array<{ channel_session_id: string; sent: number; failed: number; uncertain: number; last_sent_at: string | null }>;
 }
@@ -390,7 +392,8 @@ export async function alertasDaCampanha(db: Db, orgId: string, campaignId: strin
     channels: det.channels.map((c) => ({ label: rotuloDoNumero(c.session) ?? "Número", status: c.session?.status ?? "STOPPED", enabled: c.enabled })),
     destinations: metricas.by_destination.map((d) => ({
       name: d.name, status: d.status, capacity: d.capacity, directed: d.directed, joined: d.joined, left: d.left,
-      measured: det.destinations.find((x) => x.id === d.destination_id)?.group_chat_id != null,
+      measured: medicaoDoDestino({ group_chat_id: det.destinations.find((x) => x.id === d.destination_id)?.group_chat_id ?? null, joined_total: d.joined_total, members_left: d.members_left }) === "medido",
+      members: d.members,
     })),
     lastImport,
   });
