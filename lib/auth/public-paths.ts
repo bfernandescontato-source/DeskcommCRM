@@ -97,6 +97,9 @@ export const PUBLIC_PATHS: RegExp[] = [
   // opera a campanha. Âncorado no formato de propósito: `/^\/g\//` deixaria qualquer sub-path
   // futuro nascer público de carona.
   /^\/g\/[0-9a-f]{20}$/,
+  // O LINK "BLOQUEAR CONTATO" da mensagem — mesma natureza do `/g/` acima: quem clica é a
+  // pessoa que recebeu a mensagem, sem sessão. Mesmo formato de token (20 hex), mesma âncora.
+  /^\/bloquear\/[0-9a-f]{20}$/,
 ];
 
 export function isPublicPath(pathname: string): boolean {

@@ -73,3 +73,12 @@ describe("/g/<token> é público — e só no formato exato do token", () => {
     }
   });
 });
+
+describe("/bloquear/<token> é público — mesma régua do /g/", () => {
+  it("libera o token de 20 hex minúsculos e nada além dele", () => {
+    expect(isPublicPath("/bloquear/9f3a1c0b7d2e4a5b6c7d")).toBe(true);
+    for (const ruim of ["/bloquear/", "/bloquear", "/bloquear/abc", "/bloquear/9f3a1c0b7d2e4a5b6c7d/extra", "/bloquear/9F3A1C0B7D2E4A5B6C7D", "/bloquear/9f3a1c0b7d2e4a5b6c7dX", "/bloquear/../api/v1/contacts"]) {
+      expect(isPublicPath(ruim), ruim).toBe(false);
+    }
+  });
+});
