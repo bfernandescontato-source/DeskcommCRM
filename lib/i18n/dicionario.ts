@@ -9569,6 +9569,7 @@ export const DICIONARIO: Traducoes = {
   "O grupo está cadastrado, mas ainda não chegou nenhum aviso de entrada ou saída. Enquanto isso, entradas e saídas aparecem como não medidas — um clique não prova que a pessoa entrou.": { es: "El grupo está registrado, pero aún no llegó ningún aviso de entrada o salida. Mientras tanto, las entradas y salidas aparecen como no medidas — un clic no prueba que la persona entró." },
   "{n} pessoa entrou nos grupos sem ser identificada como contato desta campanha.": { es: "{n} persona entró a los grupos sin ser identificada como contacto de esta campaña." },
   "{n} pessoas entraram nos grupos sem serem identificadas como contatos desta campanha.": { es: "{n} personas entraron a los grupos sin ser identificadas como contactos de esta campaña." },
+  "Bloqueou os próximos envios desta campanha": { es: "Bloqueó los próximos envíos de esta campaña" },
 };
 
 /**

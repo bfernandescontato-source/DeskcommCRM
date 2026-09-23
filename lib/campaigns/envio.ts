@@ -48,6 +48,17 @@ export function linkDoGrupo(o: { trackingEnabled: boolean; token: string; destin
   return o.destinationUrl;
 }
 
+/**
+ * O link de "BLOQUEAR CONTATO": sempre por token, nunca ligado a `tracking_enabled` — bloquear
+ * não é sobre medir clique, é um jeito de a pessoa parar de receber. Sem base pública configurada
+ * (instalação ainda em localhost), não existe link nenhum: a variável fica sem valor e o envio
+ * FALHA em vez de mandar um link quebrado — a mesma regra de `{{link_grupo}}`.
+ */
+export function linkDeBloqueio(o: { token: string; baseUrl: string | null }): string | null {
+  if (!o.baseUrl || !o.token) return null;
+  return `${o.baseUrl.replace(/\/+$/, "")}/bloquear/${o.token}`;
+}
+
 const ENVIADA = new Set(["sent", "delivered", "read"]);
 
 export function enviarTextoPelaCentral(admin: SupabaseClient): (envio: EnvioDeTexto) => Promise<ResultadoDoEnvio> {

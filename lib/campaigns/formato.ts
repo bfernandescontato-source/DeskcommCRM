@@ -243,6 +243,8 @@ export function frasesDoEvento(e: EventoParaFrase, ctx: ContextoDeNomes, t: Trad
       return destino ? f("Saiu do {destino}", { destino }) : f("Saiu do grupo");
     case "removed":
       return destino ? f("Foi removido do {destino}", { destino }) : f("Foi removido do grupo");
+    case "blocked":
+      return f("Bloqueou os próximos envios desta campanha");
     default:
       return e.kind;
   }

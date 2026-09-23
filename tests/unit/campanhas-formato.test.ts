@@ -102,6 +102,7 @@ describe("frases dos eventos — o que um operador lê", () => {
     expect(f("left", { destination_id: "d4" })).toBe("Saiu do BLACK #04");
     expect(f("replied")).toBe("Respondeu");
     expect(f("clicked")).toBe("Link clicado");
+    expect(f("blocked")).toBe("Bloqueou os próximos envios desta campanha");
   });
 
   it("envio confirmado à mão, ignorado e incerto ficam claros", () => {

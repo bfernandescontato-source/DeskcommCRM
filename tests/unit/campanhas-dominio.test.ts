@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { roleAtLeast } from "@/lib/auth/types";
 
 import { erroDaCampanha } from "@/lib/campaigns/erros";
+import { linkDeBloqueio } from "@/lib/campaigns/envio";
 import {
   chaveDeVariavel,
   chavesSoltas,
@@ -63,6 +64,23 @@ describe("mensagem — variáveis", () => {
     expect(a.texto).toBe("Entre: https://chat.whatsapp.com/BLACK01");
     expect(b.texto).toBe("Entre: https://chat.whatsapp.com/BLACK02");
     expect(renderizarMensagem(corpo, {}).faltando).toEqual(["link_grupo"]);
+  });
+
+  it("{{bloquear}} vem do contexto, sempre por token — nunca um valor fixo no texto", () => {
+    const corpo = "Não quer mais? {{bloquear}}";
+    const a = renderizarMensagem(corpo, { linkBloqueio: "https://crm.exemplo/bloquear/aaa111" });
+    const b = renderizarMensagem(corpo, { linkBloqueio: "https://crm.exemplo/bloquear/bbb222" });
+    expect(a.texto).toBe("Não quer mais? https://crm.exemplo/bloquear/aaa111");
+    expect(b.texto).toBe("Não quer mais? https://crm.exemplo/bloquear/bbb222");
+    // Sem base pública configurada: falta o valor — o envio falha em vez de mandar link quebrado.
+    expect(renderizarMensagem(corpo, {}).faltando).toEqual(["bloquear"]);
+  });
+
+  it("linkDeBloqueio: só existe com base pública e token; nunca depende de tracking_enabled", () => {
+    expect(linkDeBloqueio({ token: "abc123", baseUrl: "https://crm.exemplo.com" })).toBe("https://crm.exemplo.com/bloquear/abc123");
+    expect(linkDeBloqueio({ token: "abc123", baseUrl: "https://crm.exemplo.com/" })).toBe("https://crm.exemplo.com/bloquear/abc123");
+    expect(linkDeBloqueio({ token: "abc123", baseUrl: null })).toBeNull();
+    expect(linkDeBloqueio({ token: "", baseUrl: "https://crm.exemplo.com" })).toBeNull();
   });
 
   it("detecta chave solta ({{nome} , {nome}}, espaço dentro do nome)", () => {
@@ -238,6 +256,13 @@ describe("prévia da mensagem", () => {
   });
   it("texto sem variável não pede destino", () => {
     expect(previaDaMensagem("Promoção hoje!").faltaDestino).toBe(false);
+  });
+  it("{{bloquear}} na prévia é sempre um marcador — o token real só existe por contato, no envio", () => {
+    const p = previaDaMensagem("Oi {{primeiro_nome}}! Não quer mais? {{bloquear}}");
+    expect(p.texto).toBe("Oi Maria! Não quer mais? ‹link de bloquear›");
+    // Não é coluna do CSV nem pede destino: é variável do sistema, sempre resolvida.
+    expect(p.doCsv).toEqual([]);
+    expect(p.faltaDestino).toBe(false);
   });
 });
 

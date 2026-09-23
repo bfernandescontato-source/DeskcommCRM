@@ -22,7 +22,7 @@
  * Tudo que toca o mundo entra por `DepsDoDespachante`, e é por isso que a orquestração
  * inteira é testável sem banco e sem WhatsApp.
  */
-import { linkDoGrupo, type EnvioDeTexto, type ResultadoDoEnvio } from "./envio";
+import { linkDeBloqueio, linkDoGrupo, type EnvioDeTexto, type ResultadoDoEnvio } from "./envio";
 import { renderizarMensagem } from "./mensagem";
 import { decidirEnvio, type DecisaoDeRitmo, type RitmoDoCanal } from "./ritmo";
 
@@ -260,7 +260,8 @@ async function processarContato(
     destinationUrl: d.destination_url ?? null,
     baseUrl: deps.baseDoRastreio,
   });
-  const msg = renderizarMensagem(d.body ?? "", { nome, linkGrupo: link, variaveis: d.variables ?? {} });
+  const linkBloqueio = linkDeBloqueio({ token: d.tracking_token ?? "", baseUrl: deps.baseDoRastreio });
+  const msg = renderizarMensagem(d.body ?? "", { nome, linkGrupo: link, linkBloqueio, variaveis: d.variables ?? {} });
 
   // Variável sem valor NUNCA vira texto enviável: seria um `{{produto}}` literal na tela de alguém.
   if (msg.faltando.length > 0) {

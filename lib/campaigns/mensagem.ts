@@ -17,7 +17,7 @@
 import { ehIdentificadorTecnico } from "@/lib/contacts/rotulo-do-contato";
 
 /** Variáveis que o sistema resolve sozinho, sem coluna no CSV. */
-export const VARIAVEIS_DO_SISTEMA = ["nome", "primeiro_nome", "link_grupo"] as const;
+export const VARIAVEIS_DO_SISTEMA = ["nome", "primeiro_nome", "link_grupo", "bloquear"] as const;
 export type VariavelDoSistema = (typeof VARIAVEIS_DO_SISTEMA)[number];
 
 /** Nome de coluna de CSV -> chave de variável (`Produto Comprado` -> `produto_comprado`). */
@@ -53,6 +53,8 @@ export interface ContextoDaMensagem {
   nome?: string | null;
   /** O link que vai no texto: o rastreável (`/g/<token>`) ou o do convite cru. */
   linkGrupo?: string | null;
+  /** O link de "bloquear contato" (`/bloquear/<token>`): sempre por token, nunca fixo. */
+  linkBloqueio?: string | null;
   /** Colunas extras do CSV, com a chave já normalizada. */
   variaveis?: Record<string, string> | null;
 }
@@ -76,6 +78,7 @@ export function renderizarMensagem(corpo: string, ctx: ContextoDaMensagem): Mens
     if (chave === "nome") valor = nome;
     else if (chave === "primeiro_nome") valor = primeiro;
     else if (chave === "link_grupo") valor = (ctx.linkGrupo ?? "").trim();
+    else if (chave === "bloquear") valor = (ctx.linkBloqueio ?? "").trim();
     else valor = (extras[chave] ?? "").trim();
     if (valor === "") {
       if (!faltando.includes(chave)) faltando.push(chave);
@@ -111,6 +114,8 @@ export function previaDaMensagem(corpo: string, opcoes: { linkGrupo?: string | n
   const r = renderizarMensagem(corpo, {
     nome: opcoes.nome ?? CONTATO_DE_EXEMPLO.nome,
     linkGrupo: link !== "" ? link : "‹link do grupo›",
+    // Na prévia o link de bloqueio é sempre um marcador: o token real só existe por contato, no envio.
+    linkBloqueio: "‹link de bloquear›",
     variaveis: Object.fromEntries(doCsv.map((k) => [k, `‹${k}›`])),
   });
   return { texto: r.texto, doCsv, chavesSoltas: chavesSoltas(corpo), faltaDestino: usadas.includes("link_grupo") && link === "" };

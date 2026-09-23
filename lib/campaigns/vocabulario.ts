@@ -83,6 +83,7 @@ export const CAMPAIGN_EVENT_KINDS = [
   "joined",
   "left",
   "removed",
+  "blocked",
 ] as const;
 export type CampaignEventKind = (typeof CAMPAIGN_EVENT_KINDS)[number];
 

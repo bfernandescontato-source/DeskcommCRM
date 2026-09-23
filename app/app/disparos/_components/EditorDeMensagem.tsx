@@ -57,7 +57,7 @@ export function CampoDaMensagem({ e }: { e: Editor }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5" aria-label={t("Variáveis")}>
-        {["nome", "primeiro_nome", "link_grupo"].map((k) => (
+        {["nome", "primeiro_nome", "link_grupo", "bloquear"].map((k) => (
           <button key={k} type="button" onClick={() => e.inserir(k)} className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-xs font-medium text-text-muted hover:border-accent hover:text-accent">
             {`{{${k}}}`}
           </button>
